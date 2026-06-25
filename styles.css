@@ -1,0 +1,289 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: #1c1c1e;
+}
+
+body {
+  font-family: -apple-system, "SF Pro Display", sans-serif;
+  background: #1c1c1e;
+  color: #e0e0e0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+button, input { -webkit-app-region: no-drag; }
+
+#calculator {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 4px;
+  overflow: visible;
+}
+
+.hidden { display: none !important; }
+
+/* === DISPLAY AREAS === */
+
+#alg-display {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  min-height: 50px;
+}
+
+#display-text {
+  font-size: 40px;
+  font-weight: 300;
+  color: #fff;
+  text-align: right;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+/* RPN Stack */
+#stack-display {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px;
+}
+
+.stack-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-bottom: 1px solid #3a3a3c;
+  padding: 4px 0;
+  min-height: 44px;
+}
+
+.stack-val {
+  flex: 1;
+  text-align: right;
+  font-size: 32px;
+  font-weight: 300;
+  color: #fff;
+  padding-right: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stack-btn {
+  flex: 0 0 auto;
+  width: 48px;
+  background: #3a3a3c;
+  color: #e0e0e0;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.stack-btn:hover { background: #4a4a4e; }
+
+/* Programmer Display */
+#prog-display {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+}
+
+#prog-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+#prog-toggles {
+  display: flex;
+  gap: 2px;
+}
+
+.prog-toggle {
+  background: #3a3a3c;
+  color: #e0e0e0;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.prog-toggle:hover { background: #4a4a4e; }
+
+#base-selector {
+  display: flex;
+  gap: 2px;
+}
+
+.base-btn {
+  background: #3a3a3c;
+  color: #e0e0e0;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.base-btn.active {
+  background: transparent;
+  color: #ff9500;
+  border-color: #ff9500;
+}
+
+.base-btn:hover { background: #4a4a4e; }
+
+#binary-display {
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: #ccc;
+  padding: 4px 0;
+}
+
+.binary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.nibble {
+  position: relative;
+  display: inline-block;
+  width: 12.5%;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.bit-label {
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  font-size: 9px;
+  color: #888;
+}
+
+/* === BUTTON GRIDS === */
+
+.button-grid {
+  flex: 1 1 0;
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  grid-template-rows: repeat(5, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+#prog-buttons {
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+}
+
+/* === BUTTONS === */
+
+.btn {
+  border: none;
+  border-radius: 14px;
+  font-size: clamp(12px, calc(var(--btn-height, 40px) * 0.4), 18px);
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s;
+  padding: 0;
+  line-height: 1;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.btn-func {
+  background: #3a3a3c;
+  color: #e0e0e0;
+}
+
+.btn-func:hover { background: #4a4a4e; }
+.btn-func:active { background: #5a5a5e; }
+
+.btn-num {
+  background: #505050;
+  color: #fff;
+}
+
+.btn-num:hover { background: #616161; }
+.btn-num:active { background: #707070; }
+
+.btn-light {
+  background: #a5a5a5;
+  color: #1c1c1e;
+}
+
+.btn-light:hover { background: #b8b8b8; }
+.btn-light:active { background: #cacaca; }
+
+.btn-orange {
+  background: #ff9500;
+  color: #fff;
+  font-weight: 500;
+}
+
+.btn-orange:hover { background: #ffaa33; }
+.btn-orange:active { background: #cc7700; }
+
+.btn.disabled, .btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* 2nd button active state */
+#btn-2nd.active {
+  background: #636366;
+  color: #fff;
+}
+
+/* Sub/superscript styling in buttons */
+.btn sup, .btn sub {
+  font-size: 0.7em;
+}
+
+.btn i {
+  font-style: italic;
+}
+
+/* Programmer button adjustments — make them pill-shaped instead of round */
+#prog-buttons .btn {
+  border-radius: 16px;
+  font-size: clamp(12px, calc(var(--btn-height, 40px) * 0.4), 18px);
+}
+
+/* Scientific button adjustments for wide layout */
+#sci-buttons {
+  grid-template-columns: repeat(10, 1fr);
+}
+
+#sci-buttons .btn {
+  border-radius: 14px;
+}
+
+/* Responsive font sizing */
+@media (max-width: 700px) {
+  .stack-val { font-size: 24px; }
+  #display-text { font-size: 28px; }
+}
+
+@media (min-height: 700px) {
+  .stack-val { font-size: 36px; }
+  #display-text { font-size: 48px; }
+}

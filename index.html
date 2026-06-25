@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>BengalCalc</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="calculator">
+    <!-- RPN Stack Display (hidden in algebraic mode) -->
+    <div id="stack-display" class="hidden">
+      <div class="stack-row"><span class="stack-val" id="stack-t"></span><button class="stack-btn" id="btn-swap">x↔y</button></div>
+      <div class="stack-row"><span class="stack-val" id="stack-z"></span><button class="stack-btn" id="btn-rdown">R↓</button></div>
+      <div class="stack-row"><span class="stack-val" id="stack-y"></span><button class="stack-btn" id="btn-rup">R↑</button></div>
+      <div class="stack-row"><span class="stack-val" id="stack-x"></span><button class="stack-btn" id="btn-drop">drop</button></div>
+    </div>
+
+    <!-- Algebraic Display -->
+    <div id="alg-display">
+      <div id="display-text">0</div>
+    </div>
+
+    <!-- Programmer Binary Display (hidden unless programmer layout) -->
+    <div id="prog-display" class="hidden">
+      <div id="prog-controls">
+        <div id="prog-toggles">
+          <button class="prog-toggle" id="btn-ascii">ASCII</button>
+          <button class="prog-toggle" id="btn-unicode">Unicode</button>
+        </div>
+        <button class="prog-toggle" id="btn-hide-binary">Hide Binary</button>
+        <div id="base-selector">
+          <button class="base-btn" data-base="8">8</button>
+          <button class="base-btn active" data-base="10">10</button>
+          <button class="base-btn" data-base="16">16</button>
+        </div>
+      </div>
+      <div id="binary-display">
+        <div class="binary-row" id="binary-high"></div>
+        <div class="binary-row" id="binary-low"></div>
+      </div>
+    </div>
+
+    <!-- Scientific Button Grid -->
+    <div id="sci-buttons" class="button-grid">
+      <button class="btn btn-func" data-action="openParen">(</button>
+      <button class="btn btn-func" data-action="closeParen">)</button>
+      <button class="btn btn-func" data-action="mc">mc</button>
+      <button class="btn btn-func" data-action="mplus">m+</button>
+      <button class="btn btn-func" data-action="mminus">m-</button>
+      <button class="btn btn-func" data-action="mr">mr</button>
+      <button class="btn btn-light" data-action="backspace">⌫</button>
+      <button class="btn btn-light" data-action="clear" id="btn-clear">AC</button>
+      <button class="btn btn-light" data-action="percent">%</button>
+      <button class="btn btn-orange" data-action="divide">÷</button>
+
+      <button class="btn btn-func" data-action="second" id="btn-2nd">2<sup>nd</sup></button>
+      <button class="btn btn-func" data-action="square">x²</button>
+      <button class="btn btn-func" data-action="cube">x³</button>
+      <button class="btn btn-func" data-action="pow" id="btn-pow"><span class="normal">y<sup>x</sup></span><span class="second hidden">x<sup>y</sup></span></button>
+      <button class="btn btn-func" data-action="exp" id="btn-exp"><span class="normal">e<sup>x</sup></span><span class="second hidden">y<sup>x</sup></span></button>
+      <button class="btn btn-func" data-action="tenx" id="btn-tenx"><span class="normal">10<sup>x</sup></span><span class="second hidden">2<sup>x</sup></span></button>
+      <button class="btn btn-num" data-action="digit" data-val="7">7</button>
+      <button class="btn btn-num" data-action="digit" data-val="8">8</button>
+      <button class="btn btn-num" data-action="digit" data-val="9">9</button>
+      <button class="btn btn-orange" data-action="multiply">×</button>
+
+      <button class="btn btn-func" data-action="reciprocal">⅟x</button>
+      <button class="btn btn-func" data-action="sqrt">²√x</button>
+      <button class="btn btn-func" data-action="cbrt">³√x</button>
+      <button class="btn btn-func" data-action="xrooty" id="btn-xrooty"><span class="normal"><sup>x</sup>√y</span><span class="second hidden"><sup>y</sup>√x</span></button>
+      <button class="btn btn-func" data-action="ln" id="btn-ln"><span class="normal">ln</span><span class="second hidden">log<sub>y</sub></span></button>
+      <button class="btn btn-func" data-action="log10" id="btn-log10"><span class="normal">log<sub>10</sub></span><span class="second hidden">log<sub>2</sub></span></button>
+      <button class="btn btn-num" data-action="digit" data-val="4">4</button>
+      <button class="btn btn-num" data-action="digit" data-val="5">5</button>
+      <button class="btn btn-num" data-action="digit" data-val="6">6</button>
+      <button class="btn btn-orange" data-action="subtract">−</button>
+
+      <button class="btn btn-func" data-action="factorial">x!</button>
+      <button class="btn btn-func" data-action="sin" id="btn-sin"><span class="normal">sin</span><span class="second hidden">sin⁻¹</span></button>
+      <button class="btn btn-func" data-action="cos" id="btn-cos"><span class="normal">cos</span><span class="second hidden">cos⁻¹</span></button>
+      <button class="btn btn-func" data-action="tan" id="btn-tan"><span class="normal">tan</span><span class="second hidden">tan⁻¹</span></button>
+      <button class="btn btn-func" data-action="econst"><i>e</i></button>
+      <button class="btn btn-func" data-action="ee">EE</button>
+      <button class="btn btn-num" data-action="digit" data-val="1">1</button>
+      <button class="btn btn-num" data-action="digit" data-val="2">2</button>
+      <button class="btn btn-num" data-action="digit" data-val="3">3</button>
+      <button class="btn btn-orange" data-action="add">+</button>
+
+      <button class="btn btn-func" data-action="rand">Rand</button>
+      <button class="btn btn-func" data-action="sinh" id="btn-sinh"><span class="normal">sinh</span><span class="second hidden">sinh⁻¹</span></button>
+      <button class="btn btn-func" data-action="cosh" id="btn-cosh"><span class="normal">cosh</span><span class="second hidden">cosh⁻¹</span></button>
+      <button class="btn btn-func" data-action="tanh" id="btn-tanh"><span class="normal">tanh</span><span class="second hidden">tanh⁻¹</span></button>
+      <button class="btn btn-func" data-action="pi">π</button>
+      <button class="btn btn-func" data-action="rad" id="btn-rad">Rad</button>
+      <button class="btn btn-num" data-action="toggleSign">⁺⁄₋</button>
+      <button class="btn btn-num" data-action="digit" data-val="0">0</button>
+      <button class="btn btn-num" data-action="digit" data-val=".">.</button>
+      <button class="btn btn-orange" data-action="enter" id="btn-enter">=</button>
+    </div>
+
+    <!-- Programmer Button Grid -->
+    <div id="prog-buttons" class="button-grid hidden">
+      <button class="btn btn-light" data-action="backspace">⌫</button>
+      <button class="btn btn-func" data-action="openParen">(</button>
+      <button class="btn btn-func" data-action="closeParen">)</button>
+      <button class="btn btn-func btn-hex" data-action="hex" data-val="D">D</button>
+      <button class="btn btn-func btn-hex" data-action="hex" data-val="E">E</button>
+      <button class="btn btn-func btn-hex" data-action="hex" data-val="F">F</button>
+      <button class="btn btn-light" data-action="clear" id="btn-clear-prog">AC</button>
+
+      <button class="btn btn-func" data-action="and">AND</button>
+      <button class="btn btn-func" data-action="or">OR</button>
+      <button class="btn btn-func" data-action="xor">XOR</button>
+      <button class="btn btn-func btn-hex" data-action="hex" data-val="A">A</button>
+      <button class="btn btn-func btn-hex" data-action="hex" data-val="B">B</button>
+      <button class="btn btn-func btn-hex" data-action="hex" data-val="C">C</button>
+      <button class="btn btn-orange" data-action="divide">÷</button>
+
+      <button class="btn btn-func" data-action="nor">NOR</button>
+      <button class="btn btn-func" data-action="shl">&lt;&lt;</button>
+      <button class="btn btn-func" data-action="shr">&gt;&gt;</button>
+      <button class="btn btn-num" data-action="digit" data-val="7">7</button>
+      <button class="btn btn-num" data-action="digit" data-val="8">8</button>
+      <button class="btn btn-num" data-action="digit" data-val="9">9</button>
+      <button class="btn btn-orange" data-action="multiply">×</button>
+
+      <button class="btn btn-func" data-action="not">NOT</button>
+      <button class="btn btn-func" data-action="shlby">X&lt;&lt;Y</button>
+      <button class="btn btn-func" data-action="shrby">X&gt;&gt;Y</button>
+      <button class="btn btn-num" data-action="digit" data-val="4">4</button>
+      <button class="btn btn-num" data-action="digit" data-val="5">5</button>
+      <button class="btn btn-num" data-action="digit" data-val="6">6</button>
+      <button class="btn btn-orange" data-action="subtract">−</button>
+
+      <button class="btn btn-func" data-action="neg">NEG</button>
+      <button class="btn btn-func" data-action="rol">RoL</button>
+      <button class="btn btn-func" data-action="ror">RoR</button>
+      <button class="btn btn-num" data-action="digit" data-val="1">1</button>
+      <button class="btn btn-num" data-action="digit" data-val="2">2</button>
+      <button class="btn btn-num" data-action="digit" data-val="3">3</button>
+      <button class="btn btn-orange" data-action="add">+</button>
+
+      <button class="btn btn-func" data-action="mod">mod</button>
+      <button class="btn btn-func" data-action="flip8">flip<sub>8</sub></button>
+      <button class="btn btn-func" data-action="flip16">flip<sub>16</sub></button>
+      <button class="btn btn-func btn-hex" data-action="ff">FF</button>
+      <button class="btn btn-num" data-action="digit" data-val="0">0</button>
+      <button class="btn btn-num" data-action="digit" data-val="00">00</button>
+      <button class="btn btn-orange" data-action="enter">enter</button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require("electron");
+    const { CalcEngine } = require("./calc-engine");
+
+    const engine = new CalcEngine();
+    let secondActive = false;
+    let binaryHidden = false;
+
+    // Initialize from settings
+    ipcRenderer.invoke("get-calc-settings").then(({ mode, layout, precision, displayFormat }) => {
+      engine.mode = mode;
+      engine.layout = layout;
+      engine.precision = precision;
+      engine.displayFormat = displayFormat;
+      updateLayout();
+      updateDisplay();
+    });
+
+    ipcRenderer.on("set-mode", (_e, mode) => {
+      engine.mode = mode;
+      engine.reset();
+      updateLayout();
+      updateDisplay();
+    });
+
+    ipcRenderer.on("set-layout", (_e, layout) => {
+      engine.layout = layout;
+      engine.reset();
+      updateLayout();
+      updateDisplay();
+    });
+
+    ipcRenderer.on("set-precision", (_e, precision) => {
+      engine.precision = precision;
+      updateDisplay();
+    });
+
+    ipcRenderer.on("set-display-format", (_e, format) => {
+      engine.displayFormat = format;
+      updateDisplay();
+    });
+
+    function updateLayout() {
+      const isRPN = engine.mode === "rpn";
+      const isProg = engine.layout === "programmer";
+
+      document.getElementById("stack-display").classList.toggle("hidden", !isRPN);
+      document.getElementById("alg-display").classList.toggle("hidden", isRPN);
+      document.getElementById("prog-display").classList.toggle("hidden", !isProg);
+      document.getElementById("sci-buttons").classList.toggle("hidden", isProg);
+      document.getElementById("prog-buttons").classList.toggle("hidden", !isProg);
+
+      const enterBtn = document.getElementById("btn-enter");
+      if (enterBtn) enterBtn.textContent = isRPN ? "enter" : "=";
+
+      const clearBtn = document.getElementById("btn-clear");
+      if (clearBtn) clearBtn.textContent = isRPN ? "C" : "C";
+
+      const clearBtnProg = document.getElementById("btn-clear-prog");
+      if (clearBtnProg) clearBtnProg.textContent = isRPN ? "C" : "C";
+
+      document.body.dataset.mode = engine.mode;
+      document.body.dataset.layout = engine.layout;
+
+      document.querySelectorAll("#sci-buttons [data-action='openParen'], #sci-buttons [data-action='closeParen'], #prog-buttons [data-action='openParen'], #prog-buttons [data-action='closeParen']").forEach(btn => {
+        btn.disabled = isRPN;
+        btn.classList.toggle("disabled", isRPN);
+      });
+    }
+
+    function updateClearButton() {
+      if (engine.mode !== "rpn") return;
+      const label = engine.clearPending ? "AC" : "C";
+      const btn1 = document.getElementById("btn-clear");
+      const btn2 = document.getElementById("btn-clear-prog");
+      if (btn1) btn1.textContent = label;
+      if (btn2) btn2.textContent = label;
+    }
+
+    function updateDisplay() {
+      if (engine.mode === "rpn") {
+        const display = engine.getDisplay();
+        document.getElementById("stack-t").textContent = formatVal(engine.stack[0]);
+        document.getElementById("stack-z").textContent = formatVal(engine.stack[1]);
+        document.getElementById("stack-y").textContent = formatVal(engine.stack[2]);
+        if (engine.expectingOperand) {
+          document.getElementById("stack-x").textContent = formatVal(engine.stack[3]);
+        } else {
+          document.getElementById("stack-x").textContent = engine.currentInput;
+        }
+      } else {
+        const display = engine.getDisplay();
+        document.getElementById("display-text").textContent = display.expression || "0";
+      }
+
+      if (engine.layout === "programmer") {
+        updateBinaryDisplay();
+        updateHexButtons();
+      }
+    }
+
+    function formatVal(n) {
+      if (engine.layout === "programmer") {
+        const val = Math.trunc(n || 0);
+        if (engine.base === 16) return val.toString(16).toUpperCase();
+        if (engine.base === 8) return val.toString(8);
+        return val.toString(10);
+      }
+      return engine.formatDisplay(n || 0);
+    }
+
+    function updateBinaryDisplay() {
+      if (binaryHidden) {
+        document.getElementById("binary-display").classList.add("hidden");
+        return;
+      }
+      document.getElementById("binary-display").classList.remove("hidden");
+      const nibbles = engine.getBinaryDisplay();
+      const highEl = document.getElementById("binary-high");
+      const lowEl = document.getElementById("binary-low");
+      highEl.innerHTML = nibbles.slice(0, 8).map((n, i) => {
+        const bitPos = 63 - (i * 4);
+        const label = (i === 0 || i === 4 || i === 7) ? `<span class="bit-label">${bitPos}</span>` : "";
+        return `<span class="nibble">${n}${label}</span>`;
+      }).join("");
+      lowEl.innerHTML = nibbles.slice(8, 16).map((n, i) => {
+        const bitPos = 31 - (i * 4);
+        const label = (i === 0 || i === 4 || i === 7) ? `<span class="bit-label">${bitPos}</span>` : "";
+        return `<span class="nibble">${n}${label}</span>`;
+      }).join("");
+    }
+
+    function updateHexButtons() {
+      document.querySelectorAll(".btn-hex").forEach(btn => {
+        btn.disabled = engine.base < 16;
+        btn.classList.toggle("disabled", engine.base < 16);
+      });
+      // Disable digits > base
+      document.querySelectorAll("#prog-buttons [data-action='digit']").forEach(btn => {
+        const val = parseInt(btn.dataset.val, 10);
+        if (!isNaN(val)) {
+          btn.disabled = val >= engine.base;
+          btn.classList.toggle("disabled", val >= engine.base);
+        }
+      });
+    }
+
+    // Button click handler
+    document.getElementById("calculator").addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn || btn.disabled) return;
+      const action = btn.dataset.action;
+      if (!action) return;
+      if (engine.mode === "rpn" && action !== "clear") {
+        engine.clearPending = false;
+      }
+      handleAction(action, btn.dataset.val);
+      if (engine.mode === "rpn" && action === "clear") {
+        engine.clearPending = true;
+      }
+      updateDisplay();
+      updateClearButton();
+    });
+
+    function handleAction(action, val) {
+      switch (action) {
+        case "digit": engine.inputDigit(val); break;
+        case "hex": engine.inputHexDigit(val); break;
+        case "backspace": engine.backspace(); break;
+        case "clear": engine.clear(); break;
+        case "toggleSign": engine.toggleSign(); break;
+        case "enter":
+          if (engine.mode === "rpn") engine.enter();
+          else engine.evaluate();
+          break;
+        case "add": engine.opAdd(); break;
+        case "subtract": engine.opSubtract(); break;
+        case "multiply": engine.opMultiply(); break;
+        case "divide": engine.opDivide(); break;
+        case "openParen": engine.openParen(); break;
+        case "closeParen": engine.closeParen(); break;
+        case "percent": engine.opPercent(); break;
+        case "second": toggleSecond(); break;
+        case "square": engine.opSquare(); break;
+        case "cube": engine.opCube(); break;
+        case "pow":
+          if (secondActive) engine.opYpowX();
+          else engine.opPow();
+          break;
+        case "exp":
+          if (secondActive) engine.opYpowX();
+          else engine.opExp();
+          break;
+        case "tenx":
+          if (secondActive) engine.opTwoX();
+          else engine.opTenX();
+          break;
+        case "reciprocal": engine.opReciprocal(); break;
+        case "sqrt": engine.opSqrt(); break;
+        case "cbrt": engine.opCbrt(); break;
+        case "xrooty": engine.opXRootY(); break;
+        case "ln":
+          if (secondActive) engine.opLogY();
+          else engine.opLn();
+          break;
+        case "log10":
+          if (secondActive) engine.opLog2();
+          else engine.opLog10();
+          break;
+        case "factorial": engine.opFactorial(); break;
+        case "sin":
+          if (secondActive) engine.opAsin();
+          else engine.opSin();
+          break;
+        case "cos":
+          if (secondActive) engine.opAcos();
+          else engine.opCos();
+          break;
+        case "tan":
+          if (secondActive) engine.opAtan();
+          else engine.opTan();
+          break;
+        case "sinh":
+          if (secondActive) engine.opAsinh();
+          else engine.opSinh();
+          break;
+        case "cosh":
+          if (secondActive) engine.opAcosh();
+          else engine.opCosh();
+          break;
+        case "tanh":
+          if (secondActive) engine.opAtanh();
+          else engine.opTanh();
+          break;
+        case "econst": engine.opE(); break;
+        case "ee": engine.opEE(); break;
+        case "pi": engine.opPi(); break;
+        case "rand": engine.opRand(); break;
+        case "rad": engine.toggleAngleMode(); updateRadButton(); break;
+        case "mc": engine.opMC(); break;
+        case "mplus": engine.opMPlus(); break;
+        case "mminus": engine.opMMinus(); break;
+        case "mr": engine.opMR(); break;
+        // Programmer ops
+        case "and": engine.opAnd(); break;
+        case "or": engine.opOr(); break;
+        case "xor": engine.opXor(); break;
+        case "nor": engine.opNor(); break;
+        case "not": engine.opNot(); break;
+        case "neg": engine.opNeg(); break;
+        case "shl": engine.opShiftLeft(); break;
+        case "shr": engine.opShiftRight(); break;
+        case "shlby": engine.opShiftLeftBy(); break;
+        case "shrby": engine.opShiftRightBy(); break;
+        case "rol": engine.opRoL(); break;
+        case "ror": engine.opRoR(); break;
+        case "mod": engine.opMod(); break;
+        case "flip8": engine.opFlip8(); break;
+        case "flip16": engine.opFlip16(); break;
+        case "ff": engine.opFF(); break;
+      }
+    }
+
+    function toggleSecond() {
+      secondActive = !secondActive;
+      document.getElementById("btn-2nd").classList.toggle("active", secondActive);
+      document.querySelectorAll(".normal").forEach(el => el.classList.toggle("hidden", secondActive));
+      document.querySelectorAll(".second").forEach(el => el.classList.toggle("hidden", !secondActive));
+    }
+
+    function updateRadButton() {
+      const btn = document.getElementById("btn-rad");
+      if (btn) btn.textContent = engine.angleMode === "rad" ? "Rad" : "Deg";
+    }
+
+    // Stack buttons
+    document.getElementById("btn-swap")?.addEventListener("click", () => { engine.swapXY(); updateDisplay(); });
+    document.getElementById("btn-rdown")?.addEventListener("click", () => { engine.rollDown(); updateDisplay(); });
+    document.getElementById("btn-rup")?.addEventListener("click", () => { engine.rollUp(); updateDisplay(); });
+    document.getElementById("btn-drop")?.addEventListener("click", () => { engine.drop(); updateDisplay(); });
+
+    // Base selector
+    document.querySelectorAll(".base-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        engine.base = parseInt(btn.dataset.base, 10);
+        document.querySelectorAll(".base-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        updateDisplay();
+      });
+    });
+
+    // Hide binary toggle
+    document.getElementById("btn-hide-binary")?.addEventListener("click", () => {
+      binaryHidden = !binaryHidden;
+      document.getElementById("btn-hide-binary").textContent = binaryHidden ? "Show Binary" : "Hide Binary";
+      updateBinaryDisplay();
+    });
+
+    // Keyboard support
+    document.addEventListener("keydown", (e) => {
+      if (engine.mode === "rpn" && e.key !== "Escape") {
+        engine.clearPending = false;
+        updateClearButton();
+      }
+      if (e.key >= "0" && e.key <= "9") { handleAction("digit", e.key); updateDisplay(); }
+      else if (e.key === ".") { handleAction("digit", "."); updateDisplay(); }
+      else if (e.key === "+") { handleAction("add"); updateDisplay(); }
+      else if (e.key === "-") { handleAction("subtract"); updateDisplay(); }
+      else if (e.key === "*") { handleAction("multiply"); updateDisplay(); }
+      else if (e.key === "/") { e.preventDefault(); handleAction("divide"); updateDisplay(); }
+      else if (e.key === "Enter" || e.key === "=") { handleAction("enter"); updateDisplay(); }
+      else if (e.key === "Backspace") { handleAction("backspace"); updateDisplay(); }
+      else if (e.key === "Escape") {
+        if (engine.mode === "rpn") engine.clearPending = true;
+        handleAction("clear"); updateDisplay(); updateClearButton();
+      }
+      else if (e.key === "(" ) { handleAction("openParen"); updateDisplay(); }
+      else if (e.key === ")") { handleAction("closeParen"); updateDisplay(); }
+      else if (engine.layout === "programmer" && engine.base === 16) {
+        const hex = e.key.toUpperCase();
+        if ("ABCDEF".includes(hex)) { handleAction("hex", hex); updateDisplay(); }
+      }
+    });
+
+    // Keep --btn-height in sync with actual button size
+    const ro = new ResizeObserver(() => {
+      const btn = document.querySelector(".button-grid:not(.hidden) .btn");
+      if (btn) {
+        document.documentElement.style.setProperty("--btn-height", btn.offsetHeight + "px");
+      }
+    });
+    ro.observe(document.getElementById("calculator"));
+  </script>
+</body>
+</html>
