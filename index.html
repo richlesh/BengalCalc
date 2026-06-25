@@ -56,8 +56,8 @@
       <button class="btn btn-func" data-action="second" id="btn-2nd">2<sup>nd</sup></button>
       <button class="btn btn-func" data-action="square">x²</button>
       <button class="btn btn-func" data-action="cube">x³</button>
-      <button class="btn btn-func" data-action="pow" id="btn-pow"><span class="normal">y<sup>x</sup></span><span class="second hidden">x<sup>y</sup></span></button>
-      <button class="btn btn-func" data-action="exp" id="btn-exp"><span class="normal">e<sup>x</sup></span><span class="second hidden">y<sup>x</sup></span></button>
+      <button class="btn btn-func" data-action="pow" id="btn-pow"><span>x<sup>y</sup></span></button>
+      <button class="btn btn-func" data-action="exp" id="btn-exp"><span class="normal">e<sup>x</sup></span><span class="second hidden">x<sup>y</sup></span></button>
       <button class="btn btn-func" data-action="tenx" id="btn-tenx"><span class="normal">10<sup>x</sup></span><span class="second hidden">2<sup>x</sup></span></button>
       <button class="btn btn-num" data-action="digit" data-val="7">7</button>
       <button class="btn btn-num" data-action="digit" data-val="8">8</button>
@@ -67,7 +67,7 @@
       <button class="btn btn-func" data-action="reciprocal">⅟x</button>
       <button class="btn btn-func" data-action="sqrt">²√x</button>
       <button class="btn btn-func" data-action="cbrt">³√x</button>
-      <button class="btn btn-func" data-action="xrooty" id="btn-xrooty"><span class="normal"><sup>x</sup>√y</span><span class="second hidden"><sup>y</sup>√x</span></button>
+      <button class="btn btn-func" data-action="xrooty" id="btn-xrooty"><span><sup>y</sup>√x</span></button>
       <button class="btn btn-func" data-action="ln" id="btn-ln"><span class="normal">ln</span><span class="second hidden">log<sub>y</sub></span></button>
       <button class="btn btn-func" data-action="log10" id="btn-log10"><span class="normal">log<sub>10</sub></span><span class="second hidden">log<sub>2</sub></span></button>
       <button class="btn btn-num" data-action="digit" data-val="4">4</button>
@@ -205,6 +205,12 @@
       const enterBtn = document.getElementById("btn-enter");
       if (enterBtn) enterBtn.textContent = isRPN ? "enter" : "=";
 
+      const powBtn = document.getElementById("btn-pow");
+      if (powBtn) powBtn.innerHTML = isRPN ? "<span>y<sup>x</sup></span>" : "<span>x<sup>y</sup></span>";
+
+      const xrootBtn = document.getElementById("btn-xrooty");
+      if (xrootBtn) xrootBtn.innerHTML = isRPN ? "<span><sup>x</sup>√y</span>" : "<span><sup>y</sup>√x</span>";
+
       const clearBtn = document.getElementById("btn-clear");
       if (clearBtn) clearBtn.textContent = isRPN ? "C" : "C";
 
@@ -242,13 +248,45 @@
         }
       } else {
         const display = engine.getDisplay();
-        document.getElementById("display-text").textContent = display.expression || "0";
+        const raw = display.expression || "0";
+        document.getElementById("display-text").innerHTML = formatExpressionHTML(raw);
       }
 
       if (engine.layout === "programmer") {
         updateBinaryDisplay();
         updateHexButtons();
       }
+    }
+
+    function formatExpressionHTML(expr) {
+      // Escape HTML
+      let s = expr.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      // Convert ˣ√ to radical notation: radicandˣ√root → ʳ√radicand
+      s = s.replace(/(\([^)]*\))ˣ√(\([^)]*\))/g, "<sup>$2</sup>√$1");
+      s = s.replace(/(\([^)]*\))ˣ√([0-9.]+)/g, "<sup>$2</sup>√$1");
+      s = s.replace(/([0-9.]+)ˣ√(\([^)]*\))/g, "<sup>$2</sup>√$1");
+      s = s.replace(/([0-9.]+)ˣ√([0-9.]+)/g, "<sup>$2</sup>√$1");
+      // Handle ˣ√ followed by incomplete paren (still typing root index)
+      s = s.replace(/(\([^)]*\))ˣ√(\([^)]*$)/g, "<sup>$2</sup>√$1");
+      s = s.replace(/([0-9.]+)ˣ√(\([^)]*$)/g, "<sup>$2</sup>√$1");
+      // Handle trailing ˣ√ (user hasn't typed root yet)
+      s = s.replace(/(\([^)]*\))ˣ√/g, "<sup>ˣ</sup>√$1");
+      s = s.replace(/([0-9.]+)ˣ√/g, "<sup>ˣ</sup>√$1");
+      // Handle ˣ√ with incomplete paren (still typing)
+      s = s.replace(/ˣ√/g, "<sup>ˣ</sup>√");
+      // Convert valuelogBaseY to log_Y(value)
+      s = s.replace(/([0-9.]+)logBase([0-9.]+)/g, "log<sub>$2</sub>($1)");
+      // Handle trailing logBase (user hasn't typed base yet)
+      s = s.replace(/([0-9.]+)logBase/g, "log<sub>ᵧ</sub>($1,");
+      // Convert exp(x) to e with superscript
+      s = s.replace(/exp\(([^)]*)\)/g, "<i>e</i><sup>$1</sup>");
+      // Convert ^(expr) to superscript (only complete parens)
+      s = s.replace(/\^(\([^)]*\))/g, "<sup>$1</sup>");
+      // Convert ^ followed by a number to superscript
+      s = s.replace(/\^([0-9.]+)/g, "<sup>$1</sup>");
+      // Handle ^ at end of string (user hasn't typed exponent yet)
+      s = s.replace(/\^$/g, "<sup>▸</sup>");
+      return s;
     }
 
     function formatVal(n) {
@@ -336,11 +374,10 @@
         case "square": engine.opSquare(); break;
         case "cube": engine.opCube(); break;
         case "pow":
-          if (secondActive) engine.opYpowX();
-          else engine.opPow();
+          engine.opPow();
           break;
         case "exp":
-          if (secondActive) engine.opYpowX();
+          if (secondActive) engine.opPow();
           else engine.opExp();
           break;
         case "tenx":

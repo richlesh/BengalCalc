@@ -51,7 +51,7 @@ class CalcEngine {
         x: this.expectingOperand ? this.stack[3] : this._parseInput(),
       };
     }
-    return { expression: this.expression + this.currentInput };
+    return { expression: this.expression + (this.expectingOperand && this.expression.length > 0 ? "" : this.currentInput) };
   }
 
   _parseInput() {
@@ -271,7 +271,11 @@ class CalcEngine {
 
   openParen() {
     if (this.mode === "algebraic") {
-      if (!this.expectingOperand) {
+      if (this.expectingOperand && this.lastResult !== null) {
+        this.expression = "";
+        this.currentInput = "0";
+        this.lastResult = null;
+      } else if (!this.expectingOperand) {
         this.expression += this.currentInput + "×";
         this.currentInput = "0";
       }
@@ -322,7 +326,7 @@ class CalcEngine {
     return this._parse(s);
   }
 
-  // Simple recursive descent parser for +, -, *, /, ^ with proper precedence
+  // Simple recursive descent parser
   _parse(s) {
     this._tokens = this._tokenize(s);
     this._pos = 0;
@@ -333,10 +337,35 @@ class CalcEngine {
   _tokenize(s) {
     const tokens = [];
     let i = 0;
+    const funcNames = ["sinh⁻¹", "cosh⁻¹", "tanh⁻¹", "sin⁻¹", "cos⁻¹", "tan⁻¹", "sinh", "cosh", "tanh", "sin", "cos", "tan", "log₂", "log", "ln", "exp", "³√", "√", "10^", "2^"];
     while (i < s.length) {
       if (" \t".includes(s[i])) { i++; continue; }
+      // Postfix operators
+      if (s[i] === "²" || s[i] === "³" || s[i] === "!") {
+        tokens.push(s[i]); i++; continue;
+      }
+      if (s.startsWith("⁻¹", i)) {
+        tokens.push("⁻¹"); i += 2; continue;
+      }
+      if (s.startsWith("ˣ√", i)) {
+        tokens.push("ˣ√"); i += 2; continue;
+      }
+      if (s.startsWith("logBase", i)) {
+        tokens.push("logBase"); i += 7; continue;
+      }
+      // Check for function names
+      let matched = false;
+      for (const fn of funcNames) {
+        if (s.startsWith(fn, i)) {
+          tokens.push(fn);
+          i += fn.length;
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+      // Standard operators
       if ("+-*/()%^&|⊕⊽«»".includes(s[i])) {
-        // Handle negative numbers: minus at start or after operator/open paren
         if (s[i] === "-" && (tokens.length === 0 || "+-*/(%^&|⊕⊽«»".includes(tokens[tokens.length - 1]))) {
           let num = "-";
           i++;
@@ -347,9 +376,17 @@ class CalcEngine {
         } else {
           tokens.push(s[i]); i++;
         }
-      } else if ((s[i] >= "0" && s[i] <= "9") || s[i] === "." || (this.layout === "programmer" && this.base === 16 && "ABCDEFabcdef".includes(s[i]))) {
+      } else if (s.startsWith("π", i)) {
+        tokens.push(String(Math.PI)); i += 1;
+      } else if ((s[i] >= "0" && s[i] <= "9") || s[i] === ".") {
         let num = "";
         while (i < s.length && ((s[i] >= "0" && s[i] <= "9") || s[i] === "." || s[i] === "e" || s[i] === "E" || (s[i] === "-" && (s[i-1] === "e" || s[i-1] === "E")) || (this.layout === "programmer" && this.base === 16 && "ABCDEFabcdef".includes(s[i])))) {
+          num += s[i]; i++;
+        }
+        tokens.push(num);
+      } else if (this.layout === "programmer" && this.base === 16 && "ABCDEFabcdef".includes(s[i])) {
+        let num = "";
+        while (i < s.length && "0123456789ABCDEFabcdef".includes(s[i])) {
           num += s[i]; i++;
         }
         tokens.push(num);
@@ -402,19 +439,46 @@ class CalcEngine {
   }
 
   _parsePower() {
-    let base = this._parseUnary();
+    let base = this._parsePostfix();
     if (this._peek() === "^") {
       this._consume();
       const exp = this._parsePower(); // right-associative
       base = Math.pow(base, exp);
+    } else if (this._peek() === "ˣ√") {
+      this._consume();
+      const root = this._parsePower();
+      base = Math.pow(base, 1 / root);
+    } else if (this._peek() === "logBase") {
+      this._consume();
+      const b = this._parsePower();
+      base = Math.log(base) / Math.log(b);
     }
     return base;
+  }
+
+  _parsePostfix() {
+    let val = this._parseUnary();
+    while (this._peek() === "²" || this._peek() === "³" || this._peek() === "!" || this._peek() === "⁻¹") {
+      const op = this._consume();
+      if (op === "²") val = val * val;
+      else if (op === "³") val = val * val * val;
+      else if (op === "⁻¹") val = 1 / val;
+      else if (op === "!") {
+        let n = Math.round(val);
+        if (n < 0) { val = NaN; continue; }
+        if (n > 170) { val = Infinity; continue; }
+        let r = 1;
+        for (let i = 2; i <= n; i++) r *= i;
+        val = r;
+      }
+    }
+    return val;
   }
 
   _parseUnary() {
     if (this._peek() === "-") {
       this._consume();
-      return -this._parsePrimary();
+      return -this._parsePostfix();
     }
     if (this._peek() === "+") {
       this._consume();
@@ -423,15 +487,55 @@ class CalcEngine {
   }
 
   _parsePrimary() {
-    if (this._peek() === "(") {
+    const funcSet = ["sin⁻¹", "cos⁻¹", "tan⁻¹", "sinh⁻¹", "cosh⁻¹", "tanh⁻¹", "sinh", "cosh", "tanh", "sin", "cos", "tan", "log₂", "log", "ln", "exp", "³√", "√", "10^", "2^"];
+    const token = this._peek();
+    if (funcSet.includes(token)) {
+      this._consume();
+      // Expect "(" after function name
+      if (this._peek() === "(") {
+        this._consume();
+        const arg = this._parseBitwise();
+        if (this._peek() === ")") this._consume();
+        return this._applyFunc(token, arg);
+      }
+      // No parens — apply to next primary
+      return this._applyFunc(token, this._parsePrimary());
+    }
+    if (token === "(") {
       this._consume();
       const val = this._parseBitwise();
       if (this._peek() === ")") this._consume();
       return val;
     }
-    const token = this._consume();
+    this._consume();
     if (this.layout === "programmer") return parseInt(token, this.base) || 0;
     return parseFloat(token) || 0;
+  }
+
+  _applyFunc(name, x) {
+    switch (name) {
+      case "sin": return Math.sin(this._toRad(x));
+      case "cos": return Math.cos(this._toRad(x));
+      case "tan": return Math.tan(this._toRad(x));
+      case "sin⁻¹": return this._fromRad(Math.asin(x));
+      case "cos⁻¹": return this._fromRad(Math.acos(x));
+      case "tan⁻¹": return this._fromRad(Math.atan(x));
+      case "sinh": return Math.sinh(x);
+      case "cosh": return Math.cosh(x);
+      case "tanh": return Math.tanh(x);
+      case "sinh⁻¹": return Math.asinh(x);
+      case "cosh⁻¹": return Math.acosh(x);
+      case "tanh⁻¹": return Math.atanh(x);
+      case "ln": return Math.log(x);
+      case "log": return Math.log10(x);
+      case "log₂": return Math.log2(x);
+      case "exp": return Math.exp(x);
+      case "√": return Math.sqrt(x);
+      case "³√": return Math.cbrt(x);
+      case "10^": return Math.pow(10, x);
+      case "2^": return Math.pow(2, x);
+      default: return x;
+    }
   }
 
   // Angle conversion helpers
@@ -439,28 +543,27 @@ class CalcEngine {
   _fromRad(x) { return this.angleMode === "deg" ? x * 180 / Math.PI : x; }
 
   // Scientific operations
-  opSquare() { return this.mode === "rpn" ? this._unaryOp(x => x * x) : this._algebraicUnary(x => x * x); }
-  opCube() { return this.mode === "rpn" ? this._unaryOp(x => x * x * x) : this._algebraicUnary(x => x * x * x); }
+  opSquare() { if (this.mode === "rpn") return this._unaryOp(x => x * x); this._algebraicPostfix("²"); }
+  opCube() { if (this.mode === "rpn") return this._unaryOp(x => x * x * x); this._algebraicPostfix("³"); }
   opPow() {
     if (this.mode === "rpn") return this._binaryOp((y, x) => Math.pow(y, x));
     this.appendOperator("^");
   }
-  opExp() { return this.mode === "rpn" ? this._unaryOp(x => Math.exp(x)) : this._algebraicUnary(x => Math.exp(x)); }
-  opTenX() { return this.mode === "rpn" ? this._unaryOp(x => Math.pow(10, x)) : this._algebraicUnary(x => Math.pow(10, x)); }
-  opTwoX() { return this.mode === "rpn" ? this._unaryOp(x => Math.pow(2, x)) : this._algebraicUnary(x => Math.pow(2, x)); }
-  opReciprocal() { return this.mode === "rpn" ? this._unaryOp(x => 1 / x) : this._algebraicUnary(x => 1 / x); }
-  opSqrt() { return this.mode === "rpn" ? this._unaryOp(x => Math.sqrt(x)) : this._algebraicUnary(x => Math.sqrt(x)); }
-  opCbrt() { return this.mode === "rpn" ? this._unaryOp(x => Math.cbrt(x)) : this._algebraicUnary(x => Math.cbrt(x)); }
+  opExp() { if (this.mode === "rpn") return this._unaryOp(x => Math.exp(x)); this._algebraicPrefix("exp"); }
+  opTenX() { if (this.mode === "rpn") return this._unaryOp(x => Math.pow(10, x)); this._algebraicPrefix("10^"); }
+  opTwoX() { if (this.mode === "rpn") return this._unaryOp(x => Math.pow(2, x)); this._algebraicPrefix("2^"); }
+  opReciprocal() { if (this.mode === "rpn") return this._unaryOp(x => 1 / x); this._algebraicPostfix("⁻¹"); }
+  opSqrt() { if (this.mode === "rpn") return this._unaryOp(x => Math.sqrt(x)); this._algebraicPrefix("√"); }
+  opCbrt() { if (this.mode === "rpn") return this._unaryOp(x => Math.cbrt(x)); this._algebraicPrefix("³√"); }
   opXRootY() {
     if (this.mode === "rpn") return this._binaryOp((y, x) => Math.pow(y, 1 / x));
-    this.appendOperator("^(1/");
+    this.appendOperator("ˣ√");
   }
-  opLn() { return this.mode === "rpn" ? this._unaryOp(x => Math.log(x)) : this._algebraicUnary(x => Math.log(x)); }
-  opLog10() { return this.mode === "rpn" ? this._unaryOp(x => Math.log10(x)) : this._algebraicUnary(x => Math.log10(x)); }
-  opLog2() { return this.mode === "rpn" ? this._unaryOp(x => Math.log2(x)) : this._algebraicUnary(x => Math.log2(x)); }
+  opLn() { if (this.mode === "rpn") return this._unaryOp(x => Math.log(x)); this._algebraicPrefix("ln"); }
+  opLog10() { if (this.mode === "rpn") return this._unaryOp(x => Math.log10(x)); this._algebraicPrefix("log"); }
+  opLog2() { if (this.mode === "rpn") return this._unaryOp(x => Math.log2(x)); this._algebraicPrefix("log₂"); }
   opLogY() {
     if (this.mode === "rpn") return this._binaryOp((y, x) => Math.log(y) / Math.log(x));
-    // In algebraic, treat as unary with current input as base — simplified
     this.appendOperator("logBase");
   }
   opYpowX() {
@@ -468,29 +571,32 @@ class CalcEngine {
     this.appendOperator("^");
   }
   opFactorial() {
-    const factorial = (n) => {
-      if (n < 0) return NaN;
-      if (n === 0 || n === 1) return 1;
-      n = Math.round(n);
-      if (n > 170) return Infinity;
-      let r = 1;
-      for (let i = 2; i <= n; i++) r *= i;
-      return r;
-    };
-    return this.mode === "rpn" ? this._unaryOp(factorial) : this._algebraicUnary(factorial);
+    if (this.mode === "rpn") {
+      const factorial = (n) => {
+        if (n < 0) return NaN;
+        if (n === 0 || n === 1) return 1;
+        n = Math.round(n);
+        if (n > 170) return Infinity;
+        let r = 1;
+        for (let i = 2; i <= n; i++) r *= i;
+        return r;
+      };
+      return this._unaryOp(factorial);
+    }
+    this._algebraicPostfix("!");
   }
-  opSin() { return this.mode === "rpn" ? this._unaryOp(x => Math.sin(this._toRad(x))) : this._algebraicUnary(x => Math.sin(this._toRad(x))); }
-  opCos() { return this.mode === "rpn" ? this._unaryOp(x => Math.cos(this._toRad(x))) : this._algebraicUnary(x => Math.cos(this._toRad(x))); }
-  opTan() { return this.mode === "rpn" ? this._unaryOp(x => Math.tan(this._toRad(x))) : this._algebraicUnary(x => Math.tan(this._toRad(x))); }
-  opAsin() { return this.mode === "rpn" ? this._unaryOp(x => this._fromRad(Math.asin(x))) : this._algebraicUnary(x => this._fromRad(Math.asin(x))); }
-  opAcos() { return this.mode === "rpn" ? this._unaryOp(x => this._fromRad(Math.acos(x))) : this._algebraicUnary(x => this._fromRad(Math.acos(x))); }
-  opAtan() { return this.mode === "rpn" ? this._unaryOp(x => this._fromRad(Math.atan(x))) : this._algebraicUnary(x => this._fromRad(Math.atan(x))); }
-  opSinh() { return this.mode === "rpn" ? this._unaryOp(x => Math.sinh(x)) : this._algebraicUnary(x => Math.sinh(x)); }
-  opCosh() { return this.mode === "rpn" ? this._unaryOp(x => Math.cosh(x)) : this._algebraicUnary(x => Math.cosh(x)); }
-  opTanh() { return this.mode === "rpn" ? this._unaryOp(x => Math.tanh(x)) : this._algebraicUnary(x => Math.tanh(x)); }
-  opAsinh() { return this.mode === "rpn" ? this._unaryOp(x => Math.asinh(x)) : this._algebraicUnary(x => Math.asinh(x)); }
-  opAcosh() { return this.mode === "rpn" ? this._unaryOp(x => Math.acosh(x)) : this._algebraicUnary(x => Math.acosh(x)); }
-  opAtanh() { return this.mode === "rpn" ? this._unaryOp(x => Math.atanh(x)) : this._algebraicUnary(x => Math.atanh(x)); }
+  opSin() { if (this.mode === "rpn") return this._unaryOp(x => Math.sin(this._toRad(x))); this._algebraicPrefix("sin"); }
+  opCos() { if (this.mode === "rpn") return this._unaryOp(x => Math.cos(this._toRad(x))); this._algebraicPrefix("cos"); }
+  opTan() { if (this.mode === "rpn") return this._unaryOp(x => Math.tan(this._toRad(x))); this._algebraicPrefix("tan"); }
+  opAsin() { if (this.mode === "rpn") return this._unaryOp(x => this._fromRad(Math.asin(x))); this._algebraicPrefix("sin⁻¹"); }
+  opAcos() { if (this.mode === "rpn") return this._unaryOp(x => this._fromRad(Math.acos(x))); this._algebraicPrefix("cos⁻¹"); }
+  opAtan() { if (this.mode === "rpn") return this._unaryOp(x => this._fromRad(Math.atan(x))); this._algebraicPrefix("tan⁻¹"); }
+  opSinh() { if (this.mode === "rpn") return this._unaryOp(x => Math.sinh(x)); this._algebraicPrefix("sinh"); }
+  opCosh() { if (this.mode === "rpn") return this._unaryOp(x => Math.cosh(x)); this._algebraicPrefix("cosh"); }
+  opTanh() { if (this.mode === "rpn") return this._unaryOp(x => Math.tanh(x)); this._algebraicPrefix("tanh"); }
+  opAsinh() { if (this.mode === "rpn") return this._unaryOp(x => Math.asinh(x)); this._algebraicPrefix("sinh⁻¹"); }
+  opAcosh() { if (this.mode === "rpn") return this._unaryOp(x => Math.acosh(x)); this._algebraicPrefix("cosh⁻¹"); }
+  opAtanh() { if (this.mode === "rpn") return this._unaryOp(x => Math.atanh(x)); this._algebraicPrefix("tanh⁻¹"); }
 
   opPercent() {
     if (this.mode === "rpn") {
@@ -562,13 +668,46 @@ class CalcEngine {
     }
   }
 
-  // Algebraic unary helper — applies function to current value
-  _algebraicUnary(fn) {
-    const val = this._parseInput();
-    const result = fn(val);
-    this.currentInput = this._formatNumber(result);
+  // Algebraic unary helpers — build expression strings instead of computing
+  _algebraicPrefix(name) {
+    if (this.expectingOperand && this.lastResult !== null) {
+      this.currentInput = name + "(" + this._formatNumber(this.lastResult) + ")";
+      this.lastResult = null;
+    } else if (this.currentInput === "" && this.expression.endsWith(")")) {
+      const group = this._extractTrailingGroup();
+      this.expression += name + "(" + group + ")";
+      return;
+    } else {
+      this.currentInput = name + "(" + this.currentInput + ")";
+    }
     this.expectingOperand = false;
-    return result;
+  }
+
+  _algebraicPostfix(symbol) {
+    if (this.expectingOperand && this.lastResult !== null) {
+      this.currentInput = this._formatNumber(this.lastResult) + symbol;
+      this.lastResult = null;
+    } else if (this.currentInput === "" && this.expression.endsWith(")")) {
+      this.expression += symbol;
+      return;
+    } else {
+      this.currentInput = this.currentInput + symbol;
+    }
+    this.expectingOperand = false;
+  }
+
+  _extractTrailingGroup() {
+    let depth = 0;
+    let i = this.expression.length - 1;
+    while (i >= 0) {
+      if (this.expression[i] === ")") depth++;
+      else if (this.expression[i] === "(") depth--;
+      if (depth === 0) break;
+      i--;
+    }
+    const group = this.expression.slice(i);
+    this.expression = this.expression.slice(0, i);
+    return group;
   }
 
   // Arithmetic for RPN
