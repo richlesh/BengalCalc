@@ -196,17 +196,29 @@ function buildMenu() {
         {
           label: "Cut",
           accelerator: "CmdOrCtrl+X",
-          click: () => mainWin?.webContents.send("edit-cut"),
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused === mainWin) mainWin.webContents.send("edit-cut");
+            else focused?.webContents.cut();
+          },
         },
         {
           label: "Copy",
           accelerator: "CmdOrCtrl+C",
-          click: () => mainWin?.webContents.send("edit-copy"),
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused === mainWin) mainWin.webContents.send("edit-copy");
+            else focused?.webContents.copy();
+          },
         },
         {
           label: "Paste",
           accelerator: "CmdOrCtrl+V",
-          click: () => mainWin?.webContents.send("edit-paste"),
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused === mainWin) mainWin.webContents.send("edit-paste");
+            else focused?.webContents.paste();
+          },
         },
       ]
     },
