@@ -2,7 +2,7 @@
   "name": "bengalcalc",
   "productName": "BengalCalc",
   "version": "1.0.0",
-  "description": "BengalCalc - Electron starter project",
+  "description": "BengalCalc - Scientific/Programmer Calculator",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
