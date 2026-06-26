@@ -33,6 +33,21 @@
     }
     input:focus, select:focus { border-color: #0a84ff; }
 
+    input[type="color"] {
+      width: 60px;
+      height: 40px;
+      padding: 2px;
+      cursor: pointer;
+    }
+
+    .color-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .color-row label { margin-bottom: 0; }
+
     .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: auto; }
 
     button {
@@ -49,7 +64,20 @@
 <body>
   <h1>Settings</h1>
 
-  <!-- Add your app-specific settings here -->
+  <div class="color-row">
+    <label for="font-color">Font Color</label>
+    <input type="color" id="font-color" value="#ffffff">
+  </div>
+
+  <div class="color-row">
+    <label for="bg-color">Background Color</label>
+    <input type="color" id="bg-color" value="#1c1c1e">
+  </div>
+
+  <div class="color-row">
+    <label for="btn-color">Button Color</label>
+    <input type="color" id="btn-color" value="#505050">
+  </div>
 
   <div class="row">
     <button id="cancel-btn">Cancel</button>
@@ -63,9 +91,15 @@
 
     ipcRenderer.invoke("settings-get-data").then(({ settings }) => {
       current = settings;
+      document.getElementById("font-color").value = current.fontColor || "#ffffff";
+      document.getElementById("bg-color").value = current.bgColor || "#1c1c1e";
+      document.getElementById("btn-color").value = current.btnColor || "#505050";
     });
 
     document.getElementById("save-btn").addEventListener("click", () => {
+      current.fontColor = document.getElementById("font-color").value;
+      current.bgColor = document.getElementById("bg-color").value;
+      current.btnColor = document.getElementById("btn-color").value;
       ipcRenderer.invoke("settings-save", current);
     });
 

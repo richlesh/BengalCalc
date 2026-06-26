@@ -132,7 +132,7 @@ function buildMenu() {
       ]
     },
     {
-      label: "File",
+      label: "View",
       submenu: [
         {
           label: "Mode",
@@ -181,16 +181,35 @@ function buildMenu() {
           label: "Display",
           submenu: [
             { label: "Auto", type: "radio", checked: currentDisplay === "auto", click: () => setCalcDisplay("auto") },
+            { label: "Engineering", type: "radio", checked: currentDisplay === "engineering", click: () => setCalcDisplay("engineering") },
             { label: "Fixed", type: "radio", checked: currentDisplay === "fixed", click: () => setCalcDisplay("fixed") },
             { label: "Scientific", type: "radio", checked: currentDisplay === "scientific", click: () => setCalcDisplay("scientific") },
-            { label: "Engineering", type: "radio", checked: currentDisplay === "engineering", click: () => setCalcDisplay("engineering") },
           ]
         },
         { type: "separator" },
         { role: "close" }
       ]
     },
-    { role: "editMenu" },
+    {
+      label: "Edit",
+      submenu: [
+        {
+          label: "Cut",
+          accelerator: "CmdOrCtrl+X",
+          click: () => mainWin?.webContents.send("edit-cut"),
+        },
+        {
+          label: "Copy",
+          accelerator: "CmdOrCtrl+C",
+          click: () => mainWin?.webContents.send("edit-copy"),
+        },
+        {
+          label: "Paste",
+          accelerator: "CmdOrCtrl+V",
+          click: () => mainWin?.webContents.send("edit-paste"),
+        },
+      ]
+    },
     {
       label: "Window",
       submenu: [
@@ -303,7 +322,7 @@ function openSettings() {
   if (settingsWin) return settingsWin.focus();
   settingsWin = new BrowserWindow({
     width: 400,
-    height: 300,
+    height: 380,
     resizable: false,
     parent: mainWin,
     modal: true,
@@ -321,6 +340,11 @@ ipcMain.handle("settings-save", (_e, newSettings) => {
   save({ ...existing, ...newSettings });
   settingsWin?.close();
   mainWin?.webContents.send("settings-updated");
+});
+
+ipcMain.handle("get-colors", () => {
+  const settings = load();
+  return { fontColor: settings.fontColor || "", bgColor: settings.bgColor || "", btnColor: settings.btnColor || "" };
 });
 
 ipcMain.handle("settings-cancel", () => settingsWin?.close());

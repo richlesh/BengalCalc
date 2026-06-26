@@ -2,13 +2,13 @@
 
 html, body {
   height: 100%;
-  background: #1c1c1e;
+  background: var(--bg-color, #1c1c1e);
 }
 
 body {
   font-family: -apple-system, "SF Pro Display", sans-serif;
-  background: #1c1c1e;
-  color: #e0e0e0;
+  background: var(--bg-color, #1c1c1e);
+  color: var(--font-color, #e0e0e0);
   overflow: hidden;
   user-select: none;
   -webkit-app-region: drag;
@@ -40,7 +40,7 @@ button, input { -webkit-app-region: no-drag; }
 #display-text {
   font-size: 40px;
   font-weight: 300;
-  color: #fff;
+  color: var(--font-color, #fff);
   text-align: right;
   word-break: break-all;
   line-height: 1.2;
@@ -68,7 +68,7 @@ button, input { -webkit-app-region: no-drag; }
   text-align: right;
   font-size: 32px;
   font-weight: 300;
-  color: #fff;
+  color: var(--font-color, #fff);
   padding-right: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -120,6 +120,14 @@ button, input { -webkit-app-region: no-drag; }
 }
 
 .prog-toggle:hover { background: #4a4a4e; }
+.prog-toggle.active { background: transparent; color: #ff9500; border-color: #ff9500; }
+
+#unicode-char {
+  font-size: 18px;
+  color: #fff;
+  min-width: 24px;
+  text-align: center;
+}
 
 #base-selector {
   display: flex;
@@ -167,7 +175,7 @@ button, input { -webkit-app-region: no-drag; }
 
 .bit-label {
   position: absolute;
-  bottom: -12px;
+  bottom: -6px;
   left: 0;
   font-size: 9px;
   color: #888;
@@ -195,7 +203,7 @@ button, input { -webkit-app-region: no-drag; }
 .btn {
   border: none;
   border-radius: 50px;
-  font-size: 16px;
+  font-size: calc(var(--btn-height, 20px) * 0.4);
   font-weight: 400;
   cursor: pointer;
   display: flex;
@@ -218,8 +226,8 @@ button, input { -webkit-app-region: no-drag; }
 .btn-func:active { background: #5a5a5e; }
 
 .btn-num {
-  background: #505050;
-  color: #fff;
+  background: var(--btn-color, #505050);
+  color: var(--font-color, #fff);
 }
 
 .btn-num:hover { background: #616161; }
@@ -273,6 +281,7 @@ button, input { -webkit-app-region: no-drag; }
 
 /* Programmer button adjustments — make them pill-shaped instead of round */
 #prog-buttons .btn {
+  font-size: min(calc(var(--btn-height, 20px) * 0.3), 18px);
 }
 
 /* Scientific button adjustments for wide layout */
@@ -281,6 +290,7 @@ button, input { -webkit-app-region: no-drag; }
 }
 
 #sci-buttons .btn {
+  font-size: min(calc(var(--btn-height, 20px) * 0.6), 18px);
 }
 
 /* Responsive font sizing */

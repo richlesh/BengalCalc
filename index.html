@@ -24,7 +24,7 @@
     <div id="prog-display" class="hidden">
       <div id="prog-controls">
         <div id="prog-toggles">
-          <button class="prog-toggle" id="btn-ascii">ASCII</button>
+          <span id="unicode-char"></span>
           <button class="prog-toggle" id="btn-unicode">Unicode</button>
         </div>
         <button class="prog-toggle" id="btn-hide-binary">Hide Binary</button>
@@ -116,37 +116,37 @@
       <button class="btn btn-func btn-hex" data-action="hex" data-val="C">C</button>
       <button class="btn btn-orange" data-action="divide">÷</button>
 
+      <button class="btn btn-func" data-action="nand">NAND</button>
       <button class="btn btn-func" data-action="nor">NOR</button>
-      <button class="btn btn-func" data-action="shl">&lt;&lt;</button>
-      <button class="btn btn-func" data-action="shr">&gt;&gt;</button>
+      <button class="btn btn-func" data-action="nxor">XNOR</button>
       <button class="btn btn-num" data-action="digit" data-val="7">7</button>
       <button class="btn btn-num" data-action="digit" data-val="8">8</button>
       <button class="btn btn-num" data-action="digit" data-val="9">9</button>
       <button class="btn btn-orange" data-action="multiply">×</button>
 
       <button class="btn btn-func" data-action="not">NOT</button>
-      <button class="btn btn-func" data-action="shlby">X&lt;&lt;Y</button>
-      <button class="btn btn-func" data-action="shrby">X&gt;&gt;Y</button>
+      <button class="btn btn-func" data-action="shl">&lt;&lt;</button>
+      <button class="btn btn-func" data-action="shr">&gt;&gt;</button>
       <button class="btn btn-num" data-action="digit" data-val="4">4</button>
       <button class="btn btn-num" data-action="digit" data-val="5">5</button>
       <button class="btn btn-num" data-action="digit" data-val="6">6</button>
       <button class="btn btn-orange" data-action="subtract">−</button>
 
       <button class="btn btn-func" data-action="neg">NEG</button>
-      <button class="btn btn-func" data-action="rol">RoL</button>
-      <button class="btn btn-func" data-action="ror">RoR</button>
+      <button class="btn btn-func" data-action="shlby">X&lt;&lt;Y</button>
+      <button class="btn btn-func" data-action="shrby">X&gt;&gt;Y</button>
       <button class="btn btn-num" data-action="digit" data-val="1">1</button>
       <button class="btn btn-num" data-action="digit" data-val="2">2</button>
       <button class="btn btn-num" data-action="digit" data-val="3">3</button>
       <button class="btn btn-orange" data-action="add">+</button>
 
       <button class="btn btn-func" data-action="mod">mod</button>
-      <button class="btn btn-func" data-action="flip8">flip<sub>8</sub></button>
-      <button class="btn btn-func" data-action="flip16">flip<sub>16</sub></button>
+      <button class="btn btn-func" data-action="rol">RoL</button>
+      <button class="btn btn-func" data-action="ror">RoR</button>
       <button class="btn btn-func btn-hex" data-action="ff">FF</button>
       <button class="btn btn-num" data-action="digit" data-val="0">0</button>
       <button class="btn btn-num" data-action="digit" data-val="00">00</button>
-      <button class="btn btn-orange" data-action="enter">enter</button>
+      <button class="btn btn-orange" data-action="enter" id="btn-enter-prog">enter</button>
     </div>
   </div>
 
@@ -157,6 +157,7 @@
     const engine = new CalcEngine();
     let secondActive = false;
     let binaryHidden = false;
+    let unicodeVisible = false;
 
     // Initialize from settings
     ipcRenderer.invoke("get-calc-settings").then(({ mode, layout, precision, displayFormat }) => {
@@ -192,6 +193,45 @@
       updateDisplay();
     });
 
+    ipcRenderer.on("settings-updated", () => {
+      ipcRenderer.invoke("get-colors").then(applyColors);
+    });
+
+    function applyColors(colors) {
+      if (colors.fontColor) document.documentElement.style.setProperty("--font-color", colors.fontColor);
+      if (colors.bgColor) document.documentElement.style.setProperty("--bg-color", colors.bgColor);
+      if (colors.btnColor) document.documentElement.style.setProperty("--btn-color", colors.btnColor);
+    }
+
+    ipcRenderer.invoke("get-colors").then(applyColors);
+
+    ipcRenderer.on("edit-copy", () => {
+      const text = engine.mode === "rpn"
+        ? (engine.expectingOperand ? formatVal(engine.stack[3]) : engine.currentInput)
+        : engine.getDisplay().expression || "0";
+      require("electron").clipboard.writeText(text);
+    });
+
+    ipcRenderer.on("edit-cut", () => {
+      const text = engine.mode === "rpn"
+        ? (engine.expectingOperand ? formatVal(engine.stack[3]) : engine.currentInput)
+        : engine.getDisplay().expression || "0";
+      require("electron").clipboard.writeText(text);
+      engine.currentInput = "0";
+      engine.expression = "";
+      engine.expectingOperand = true;
+      updateDisplay();
+    });
+
+    ipcRenderer.on("edit-paste", () => {
+      const text = require("electron").clipboard.readText().trim();
+      if (text) {
+        engine.currentInput = text;
+        engine.expectingOperand = false;
+        updateDisplay();
+      }
+    });
+
     function updateLayout() {
       const isRPN = engine.mode === "rpn";
       const isProg = engine.layout === "programmer";
@@ -204,6 +244,9 @@
 
       const enterBtn = document.getElementById("btn-enter");
       if (enterBtn) enterBtn.textContent = isRPN ? "enter" : "=";
+
+      const enterBtnProg = document.getElementById("btn-enter-prog");
+      if (enterBtnProg) enterBtnProg.textContent = isRPN ? "enter" : "=";
 
       const powBtn = document.getElementById("btn-pow");
       if (powBtn) powBtn.innerHTML = isRPN ? "<span>y<sup>x</sup></span>" : "<span>x<sup>y</sup></span>";
@@ -255,6 +298,7 @@
       if (engine.layout === "programmer") {
         updateBinaryDisplay();
         updateHexButtons();
+        updateUnicodeDisplay();
       }
     }
 
@@ -320,6 +364,26 @@
       }).join("");
     }
 
+    function updateUnicodeDisplay() {
+      const el = document.getElementById("unicode-char");
+      if (!unicodeVisible || engine.layout !== "programmer") {
+        el.textContent = "";
+        return;
+      }
+      let val;
+      if (engine.mode === "rpn") {
+        val = engine.expectingOperand ? engine.stack[3] : parseInt(engine.currentInput, engine.base) || 0;
+      } else {
+        val = parseInt(engine.currentInput, engine.base) || 0;
+      }
+      const code = Math.trunc(Math.abs(val)) & 0x10FFFF;
+      try {
+        el.textContent = code > 0 ? String.fromCodePoint(code) : "";
+      } catch {
+        el.textContent = "";
+      }
+    }
+
     function updateHexButtons() {
       document.querySelectorAll(".btn-hex").forEach(btn => {
         btn.disabled = engine.base < 16;
@@ -377,7 +441,7 @@
           engine.opPow();
           break;
         case "exp":
-          if (secondActive) engine.opPow();
+          if (secondActive) engine.opYpowX();
           else engine.opExp();
           break;
         case "tenx":
@@ -444,8 +508,8 @@
         case "rol": engine.opRoL(); break;
         case "ror": engine.opRoR(); break;
         case "mod": engine.opMod(); break;
-        case "flip8": engine.opFlip8(); break;
-        case "flip16": engine.opFlip16(); break;
+        case "nand": engine.opNand(); break;
+        case "nxor": engine.opNxor(); break;
         case "ff": engine.opFF(); break;
       }
     }
@@ -471,7 +535,13 @@
     // Base selector
     document.querySelectorAll(".base-btn").forEach(btn => {
       btn.addEventListener("click", () => {
-        engine.base = parseInt(btn.dataset.base, 10);
+        const oldBase = engine.base;
+        const newBase = parseInt(btn.dataset.base, 10);
+        if (!engine.expectingOperand && engine.currentInput !== "0") {
+          const val = parseInt(engine.currentInput, oldBase) || 0;
+          engine.currentInput = val.toString(newBase).toUpperCase();
+        }
+        engine.base = newBase;
         document.querySelectorAll(".base-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         updateDisplay();
@@ -483,6 +553,13 @@
       binaryHidden = !binaryHidden;
       document.getElementById("btn-hide-binary").textContent = binaryHidden ? "Show Binary" : "Hide Binary";
       updateBinaryDisplay();
+    });
+
+    // Unicode toggle
+    document.getElementById("btn-unicode")?.addEventListener("click", () => {
+      unicodeVisible = !unicodeVisible;
+      document.getElementById("btn-unicode").classList.toggle("active", unicodeVisible);
+      updateUnicodeDisplay();
     });
 
     // Keyboard support
@@ -512,13 +589,15 @@
     });
 
     // Keep --btn-height in sync with actual button size
-    const ro = new ResizeObserver(() => {
+    function measureBtnHeight() {
       const btn = document.querySelector(".button-grid:not(.hidden) .btn");
       if (btn) {
         document.documentElement.style.setProperty("--btn-height", btn.offsetHeight + "px");
       }
-    });
+    }
+    const ro = new ResizeObserver(() => measureBtnHeight());
     ro.observe(document.getElementById("calculator"));
+    requestAnimationFrame(() => requestAnimationFrame(measureBtnHeight));
   </script>
 </body>
 </html>
