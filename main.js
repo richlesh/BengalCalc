@@ -288,9 +288,12 @@ function resizeForSettings(mode, layout) {
     height = 420;
   }
   if (mode === "rpn") height += 100;
-  mainWin.setResizable(false);
+  mainWin.setResizable(true);
   mainWin.setAspectRatio(0);
+  mainWin.setMinimumSize(width, height);
+  mainWin.setMaximumSize(width, height);
   mainWin.setSize(width, height);
+  mainWin.setResizable(false);
 }
 
 ipcMain.handle("get-calc-settings", () => {
