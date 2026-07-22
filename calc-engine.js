@@ -1,3 +1,15 @@
+const MASK_64 = (1n << 64n) - 1n;
+const SIGN_BIT = 1n << 63n;
+
+function toSigned64(v) {
+  v = BigInt.asUintN(64, v);
+  return v >= SIGN_BIT ? v - (1n << 64n) : v;
+}
+
+function toUnsigned64(v) {
+  return BigInt.asUintN(64, v);
+}
+
 class CalcEngine {
   constructor() {
     this.mode = "algebraic";
@@ -56,17 +68,36 @@ class CalcEngine {
 
   _parseInput() {
     if (this.layout === "programmer") {
-      return parseInt(this.currentInput, this.base) || 0;
+      if (this.currentInput === "0" || this.currentInput === "") return 0n;
+      let val;
+      if (this.base === 16) {
+        val = BigInt("0x" + this.currentInput);
+      } else if (this.base === 8) {
+        val = BigInt("0o" + this.currentInput);
+      } else {
+        val = BigInt(this.currentInput);
+      }
+      return toSigned64(val);
     }
     return parseFloat(this.currentInput) || 0;
   }
 
   _formatNumber(n) {
     if (this.layout === "programmer") {
-      n = Math.trunc(n);
-      if (this.base === 16) return n.toString(16).toUpperCase();
-      if (this.base === 8) return n.toString(8);
-      return n.toString(10);
+      const val = typeof n === "bigint" ? n : toSigned64(BigInt(Math.trunc(n)));
+      if (this.base === 16) {
+        if (val < 0n) {
+          return toUnsigned64(val).toString(16).toUpperCase();
+        }
+        return val.toString(16).toUpperCase();
+      }
+      if (this.base === 8) {
+        if (val < 0n) {
+          return toUnsigned64(val).toString(8);
+        }
+        return val.toString(8);
+      }
+      return val.toString(10);
     }
     const p = this.precision >= 0 ? this.precision : 9;
     switch (this.displayFormat) {
@@ -139,7 +170,15 @@ class CalcEngine {
   }
 
   toggleSign() {
-    if (this.mode === "rpn" && this.expectingOperand) {
+    if (this.layout === "programmer") {
+      if (this.mode === "rpn" && this.expectingOperand) {
+        this.stack[3] = this._mask64(-this._toBigInt(this.stack[3]));
+      } else {
+        const val = this._parseInput();
+        const negated = this._mask64(-this._toBigInt(val));
+        this.currentInput = this._formatNumber(negated);
+      }
+    } else if (this.mode === "rpn" && this.expectingOperand) {
       this.stack[3] = -this.stack[3];
     } else {
       if (this.currentInput.startsWith("-")) {
@@ -413,17 +452,18 @@ class CalcEngine {
     while ("∧∨⊕⊽⊼⊙«»".includes(this._peek()) || this._peek() === "RoL" || this._peek() === "RoR") {
       const op = this._consume();
       const right = this._parseExpr();
-      const a = BigInt(Math.trunc(left)), b = BigInt(Math.trunc(right));
-      if (op === "∧") left = Number(this._mask64(a & b));
-      else if (op === "∨") left = Number(this._mask64(a | b));
-      else if (op === "⊕") left = Number(this._mask64(a ^ b));
-      else if (op === "⊽") left = Number(this._mask64(~(a | b)));
-      else if (op === "⊼") left = Number(this._mask64(~(a & b)));
-      else if (op === "⊙") left = Number(this._mask64(~(a ^ b)));
-      else if (op === "«") left = Number(this._mask64(a << b));
-      else if (op === "»") left = Number(this._mask64(a >> b));
-      else if (op === "RoL") { const n = BigInt.asUintN(64, a); const s = b % 64n; left = Number(this._mask64((n << s) | (n >> (64n - s)))); }
-      else if (op === "RoR") { const n = BigInt.asUintN(64, a); const s = b % 64n; left = Number(this._mask64((n >> s) | (n << (64n - s)))); }
+      const a = typeof left === "bigint" ? left : BigInt(Math.trunc(left));
+      const b = typeof right === "bigint" ? right : BigInt(Math.trunc(right));
+      if (op === "∧") left = toSigned64(a & b);
+      else if (op === "∨") left = toSigned64(a | b);
+      else if (op === "⊕") left = toSigned64(a ^ b);
+      else if (op === "⊽") left = toSigned64(~(a | b));
+      else if (op === "⊼") left = toSigned64(~(a & b));
+      else if (op === "⊙") left = toSigned64(~(a ^ b));
+      else if (op === "«") left = toSigned64(a << b);
+      else if (op === "»") left = toSigned64(a >> b);
+      else if (op === "RoL") { const n = toUnsigned64(a); const s = ((b % 64n) + 64n) % 64n; left = toSigned64((n << s) | (n >> (64n - s))); }
+      else if (op === "RoR") { const n = toUnsigned64(a); const s = ((b % 64n) + 64n) % 64n; left = toSigned64((n >> s) | (n << (64n - s))); }
     }
     return left;
   }
@@ -433,7 +473,13 @@ class CalcEngine {
     while (this._peek() === "+" || this._peek() === "-") {
       const op = this._consume();
       const right = this._parseTerm();
-      left = op === "+" ? left + right : left - right;
+      if (this.layout === "programmer") {
+        const a = typeof left === "bigint" ? left : BigInt(Math.trunc(left));
+        const b = typeof right === "bigint" ? right : BigInt(Math.trunc(right));
+        left = toSigned64(op === "+" ? a + b : a - b);
+      } else {
+        left = op === "+" ? left + right : left - right;
+      }
     }
     return left;
   }
@@ -443,9 +489,17 @@ class CalcEngine {
     while (this._peek() === "*" || this._peek() === "/" || this._peek() === "%") {
       const op = this._consume();
       const right = this._parsePower();
-      if (op === "*") left *= right;
-      else if (op === "/") left /= right;
-      else left %= right;
+      if (this.layout === "programmer") {
+        const a = typeof left === "bigint" ? left : BigInt(Math.trunc(left));
+        const b = typeof right === "bigint" ? right : BigInt(Math.trunc(right));
+        if (op === "*") left = toSigned64(a * b);
+        else if (op === "/") left = b === 0n ? 0n : toSigned64(a / b);
+        else left = b === 0n ? 0n : toSigned64(a % b);
+      } else {
+        if (op === "*") left *= right;
+        else if (op === "/") left /= right;
+        else left %= right;
+      }
     }
     return left;
   }
@@ -495,7 +549,8 @@ class CalcEngine {
     if (this._peek() === "¬") {
       this._consume();
       const x = this._parsePostfix();
-      return Number(this._mask64(~BigInt(Math.trunc(x))));
+      const bx = typeof x === "bigint" ? x : BigInt(Math.trunc(x));
+      return toSigned64(~bx);
     }
     if (this._peek() === "+") {
       this._consume();
@@ -525,7 +580,14 @@ class CalcEngine {
       return val;
     }
     this._consume();
-    if (this.layout === "programmer") return parseInt(token, this.base) || 0;
+    if (this.layout === "programmer") {
+      if (this.base === 16) {
+        return token === "0" ? 0n : BigInt("0x" + token);
+      } else if (this.base === 8) {
+        return token === "0" ? 0n : BigInt("0o" + token);
+      }
+      return BigInt(token || "0");
+    }
     return parseFloat(token) || 0;
   }
 
@@ -729,55 +791,71 @@ class CalcEngine {
 
   // Arithmetic for RPN
   opAdd() {
-    if (this.mode === "rpn") return this._binaryOp((y, x) => y + x);
+    if (this.mode === "rpn") {
+      if (this.layout === "programmer") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) + this._toBigInt(x)));
+      return this._binaryOp((y, x) => y + x);
+    }
     this.appendOperator("+");
   }
   opSubtract() {
-    if (this.mode === "rpn") return this._binaryOp((y, x) => y - x);
+    if (this.mode === "rpn") {
+      if (this.layout === "programmer") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) - this._toBigInt(x)));
+      return this._binaryOp((y, x) => y - x);
+    }
     this.appendOperator("-");
   }
   opMultiply() {
-    if (this.mode === "rpn") return this._binaryOp((y, x) => y * x);
+    if (this.mode === "rpn") {
+      if (this.layout === "programmer") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) * this._toBigInt(x)));
+      return this._binaryOp((y, x) => y * x);
+    }
     this.appendOperator("×");
   }
   opDivide() {
-    if (this.mode === "rpn") return this._binaryOp((y, x) => y / x);
+    if (this.mode === "rpn") {
+      if (this.layout === "programmer") return this._binaryOp((y, x) => { const bx = this._toBigInt(x); return bx === 0n ? 0n : this._mask64(this._toBigInt(y) / bx); });
+      return this._binaryOp((y, x) => y / x);
+    }
     this.appendOperator("÷");
   }
 
   // Programmer operations (all work on integers using BigInt for 64-bit)
   _intVal() {
     const x = this._getX();
-    return BigInt(Math.trunc(x));
+    return typeof x === "bigint" ? x : BigInt(Math.trunc(x));
   }
 
   _mask64(n) {
-    return Number(BigInt.asIntN(64, n));
+    return toSigned64(n);
   }
 
-  opAnd() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(BigInt(Math.trunc(y)) & BigInt(Math.trunc(x)))); this.appendOperator("∧"); }
-  opOr() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(BigInt(Math.trunc(y)) | BigInt(Math.trunc(x)))); this.appendOperator("∨"); }
-  opXor() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(BigInt(Math.trunc(y)) ^ BigInt(Math.trunc(x)))); this.appendOperator("⊕"); }
-  opNor() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(~(BigInt(Math.trunc(y)) | BigInt(Math.trunc(x))))); this.appendOperator("⊽"); }
-  opNot() { if (this.mode === "rpn") return this._unaryOp(x => this._mask64(~BigInt(Math.trunc(x)))); this._algebraicPrefix("¬"); }
-  opNeg() { if (this.mode === "rpn") return this._unaryOp(x => this._mask64(-BigInt(Math.trunc(x)))); this._algebraicPrefix("-"); }
+  _toBigInt(v) {
+    return typeof v === "bigint" ? v : BigInt(Math.trunc(v));
+  }
+
+  opAnd() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) & this._toBigInt(x))); this.appendOperator("∧"); }
+  opOr() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) | this._toBigInt(x))); this.appendOperator("∨"); }
+  opXor() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) ^ this._toBigInt(x))); this.appendOperator("⊕"); }
+  opNor() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(~(this._toBigInt(y) | this._toBigInt(x)))); this.appendOperator("⊽"); }
+  opNot() { if (this.mode === "rpn") return this._unaryOp(x => this._mask64(~this._toBigInt(x))); this._algebraicPrefix("¬"); }
+  opNeg() { if (this.mode === "rpn") return this._unaryOp(x => this._mask64(-this._toBigInt(x))); this._algebraicPrefix("-"); }
   opShiftLeft() {
-    if (this.mode === "rpn") return this._unaryOp(x => this._mask64(BigInt(Math.trunc(x)) << 1n));
+    if (this.mode === "rpn") return this._unaryOp(x => this._mask64(this._toBigInt(x) << 1n));
     const m = this.currentInput.match(/«(\d+)$/);
     if (m) { this.currentInput = this.currentInput.replace(/«\d+$/, "«" + (parseInt(m[1]) + 1)); }
     else { this._algebraicPostfix("«1"); }
   }
   opShiftRight() {
-    if (this.mode === "rpn") return this._unaryOp(x => this._mask64(BigInt(Math.trunc(x)) >> 1n));
+    if (this.mode === "rpn") return this._unaryOp(x => this._mask64(this._toBigInt(x) >> 1n));
     const m = this.currentInput.match(/»(\d+)$/);
     if (m) { this.currentInput = this.currentInput.replace(/»\d+$/, "»" + (parseInt(m[1]) + 1)); }
     else { this._algebraicPostfix("»1"); }
   }
-  opShiftLeftBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(BigInt(Math.trunc(y)) << BigInt(Math.trunc(x)))); this.appendOperator("«"); }
-  opShiftRightBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(BigInt(Math.trunc(y)) >> BigInt(Math.trunc(x)))); this.appendOperator("»"); }
+  opShiftLeftBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) << this._toBigInt(x))); this.appendOperator("«"); }
+  opShiftRightBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) >> this._toBigInt(x))); this.appendOperator("»"); }
   opRoL() {
     if (this.mode === "rpn") return this._unaryOp(x => {
-      const n = BigInt.asUintN(64, BigInt(Math.trunc(x)));
+      const n = toUnsigned64(this._toBigInt(x));
       return this._mask64((n << 1n) | (n >> 63n));
     });
     const m = this.currentInput.match(/RoL(\d+)$/);
@@ -786,16 +864,36 @@ class CalcEngine {
   }
   opRoR() {
     if (this.mode === "rpn") return this._unaryOp(x => {
-      const n = BigInt.asUintN(64, BigInt(Math.trunc(x)));
+      const n = toUnsigned64(this._toBigInt(x));
       return this._mask64((n >> 1n) | (n << 63n));
     });
     const m = this.currentInput.match(/RoR(\d+)$/);
     if (m) { this.currentInput = this.currentInput.replace(/RoR\d+$/, "RoR" + (parseInt(m[1]) + 1)); }
     else { this._algebraicPostfix("RoR1"); }
   }
-  opMod() { if (this.mode === "rpn") return this._binaryOp((y, x) => x === 0 ? 0 : Math.trunc(y) % Math.trunc(x)); this.appendOperator("%"); }
-  opNand() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(~(BigInt(Math.trunc(y)) & BigInt(Math.trunc(x))))); this.appendOperator("⊼"); }
-  opNxor() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(~(BigInt(Math.trunc(y)) ^ BigInt(Math.trunc(x))))); this.appendOperator("⊙"); }
+  opMod() { if (this.mode === "rpn") return this._binaryOp((y, x) => { const bx = this._toBigInt(x); return bx === 0n ? 0n : this._mask64(this._toBigInt(y) % bx); }); this.appendOperator("%"); }
+  opNand() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(~(this._toBigInt(y) & this._toBigInt(x)))); this.appendOperator("⊼"); }
+  opNxor() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(~(this._toBigInt(y) ^ this._toBigInt(x)))); this.appendOperator("⊙"); }
+  opFlip8() {
+    if (this.mode === "rpn") return this._unaryOp(x => {
+      const n = toUnsigned64(this._toBigInt(x));
+      let result = 0n;
+      for (let i = 0n; i < 8n; i++) {
+        result |= ((n >> (i * 8n)) & 0xFFn) << ((7n - i) * 8n);
+      }
+      return this._mask64(result);
+    });
+  }
+  opFlip16() {
+    if (this.mode === "rpn") return this._unaryOp(x => {
+      const n = toUnsigned64(this._toBigInt(x));
+      let result = 0n;
+      for (let i = 0n; i < 4n; i++) {
+        result |= ((n >> (i * 16n)) & 0xFFFFn) << ((3n - i) * 16n);
+      }
+      return this._mask64(result);
+    });
+  }
   opFF() {
     if (this.base < 16) return;
     if (this.expectingOperand) {
@@ -813,6 +911,7 @@ class CalcEngine {
   formatDisplay(val) {
     if (val === undefined || val === null) return "0";
     if (typeof val === "string") return val;
+    if (typeof val === "bigint") return this._formatNumber(val);
     return this._formatNumber(val);
   }
 
@@ -823,7 +922,9 @@ class CalcEngine {
     } else {
       val = this._parseInput();
     }
-    const n = BigInt.asUintN(64, BigInt(Math.trunc(val || 0)));
+    const n = typeof val === "bigint"
+      ? toUnsigned64(val)
+      : BigInt.asUintN(64, BigInt(Math.trunc(val || 0)));
     const bits = n.toString(2).padStart(64, "0");
     const nibbles = [];
     for (let i = 0; i < 64; i += 4) {
@@ -833,4 +934,4 @@ class CalcEngine {
   }
 }
 
-module.exports = { CalcEngine };
+module.exports = { CalcEngine, toSigned64, toUnsigned64, MASK_64 };

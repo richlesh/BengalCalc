@@ -141,8 +141,8 @@
       <button class="btn btn-orange" data-action="add">+</button>
 
       <button class="btn btn-func" data-action="mod">mod</button>
-      <button class="btn btn-func" data-action="rol">RoL</button>
-      <button class="btn btn-func" data-action="ror">RoR</button>
+      <button class="btn btn-func" data-action="flip8">flip₈</button>
+      <button class="btn btn-func" data-action="flip16">flip₁₆</button>
       <button class="btn btn-num btn-hex" data-action="ff">FF</button>
       <button class="btn btn-num" data-action="digit" data-val="0">0</button>
       <button class="btn btn-num" data-action="digit" data-val="00">00</button>
@@ -335,6 +335,23 @@
 
     function formatVal(n) {
       if (engine.layout === "programmer") {
+        if (typeof n === "bigint") {
+          if (engine.base === 16) {
+            if (n < 0n) {
+              const unsigned = BigInt.asUintN(64, n);
+              return unsigned.toString(16).toUpperCase();
+            }
+            return n.toString(16).toUpperCase();
+          }
+          if (engine.base === 8) {
+            if (n < 0n) {
+              const unsigned = BigInt.asUintN(64, n);
+              return unsigned.toString(8);
+            }
+            return n.toString(8);
+          }
+          return n.toString(10);
+        }
         const val = Math.trunc(n || 0);
         if (engine.base === 16) return val.toString(16).toUpperCase();
         if (engine.base === 8) return val.toString(8);
@@ -376,7 +393,12 @@
       } else {
         val = parseInt(engine.currentInput, engine.base) || 0;
       }
-      const code = Math.trunc(Math.abs(val)) & 0x10FFFF;
+      let code;
+      if (typeof val === "bigint") {
+        code = Number(val < 0n ? -val : val) & 0x10FFFF;
+      } else {
+        code = Math.trunc(Math.abs(val)) & 0x10FFFF;
+      }
       try {
         el.textContent = code > 0 ? String.fromCodePoint(code) : "";
       } catch {
@@ -511,6 +533,8 @@
         case "nand": engine.opNand(); break;
         case "nxor": engine.opNxor(); break;
         case "ff": engine.opFF(); break;
+        case "flip8": engine.opFlip8(); break;
+        case "flip16": engine.opFlip16(); break;
       }
     }
 
@@ -538,7 +562,10 @@
         const oldBase = engine.base;
         const newBase = parseInt(btn.dataset.base, 10);
         if (!engine.expectingOperand && engine.currentInput !== "0") {
-          const val = parseInt(engine.currentInput, oldBase) || 0;
+          let val;
+          if (oldBase === 16) val = BigInt("0x" + engine.currentInput);
+          else if (oldBase === 8) val = BigInt("0o" + engine.currentInput);
+          else val = BigInt(engine.currentInput);
           engine.currentInput = val.toString(newBase).toUpperCase();
         }
         engine.base = newBase;

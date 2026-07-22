@@ -4,7 +4,7 @@
 BengalCalc is a bare-bones cross-platform desktop application template built with Electron. It provides the scaffolding for a new app with settings persistence, license key validation, splash screen, and about window already wired up.
 
 ## Version
-1.0.0
+1.1.0
 
 ## Key Features
 

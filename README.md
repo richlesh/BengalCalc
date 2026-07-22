@@ -1,4 +1,4 @@
-# BengalCalc v1.0.0
+# BengalCalc v1.1.0
 
 A cross-platform scientific and programmer calculator built with Electron, supporting both algebraic and RPN entry modes.
 
