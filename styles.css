@@ -16,6 +16,10 @@ body {
 
 button, input { -webkit-app-region: no-drag; }
 
+button:focus {
+  outline: none;
+}
+
 #calculator {
   display: flex;
   flex-direction: column;
@@ -61,6 +65,16 @@ button, input { -webkit-app-region: no-drag; }
   border-bottom: 1px solid #3a3a3c;
   padding: 4px 0;
   min-height: 44px;
+}
+
+.stack-label {
+  flex: 0 0 auto;
+  width: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #8e8e93;
+  text-align: center;
+  padding-left: 4px;
 }
 
 .stack-val {

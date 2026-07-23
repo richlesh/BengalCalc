@@ -9,10 +9,10 @@
   <div id="calculator">
     <!-- RPN Stack Display (hidden in algebraic mode) -->
     <div id="stack-display" class="hidden">
-      <div class="stack-row"><span class="stack-val" id="stack-t"></span><button class="stack-btn" id="btn-swap">x↔y</button></div>
-      <div class="stack-row"><span class="stack-val" id="stack-z"></span><button class="stack-btn" id="btn-rdown">R↓</button></div>
-      <div class="stack-row"><span class="stack-val" id="stack-y"></span><button class="stack-btn" id="btn-rup">R↑</button></div>
-      <div class="stack-row"><span class="stack-val" id="stack-x"></span><button class="stack-btn" id="btn-drop">drop</button></div>
+      <div class="stack-row"><span class="stack-label">T</span><span class="stack-val" id="stack-t"></span><button class="stack-btn" id="btn-swap">x↔y</button></div>
+      <div class="stack-row"><span class="stack-label">Z</span><span class="stack-val" id="stack-z"></span><button class="stack-btn" id="btn-rdown">R↓</button></div>
+      <div class="stack-row"><span class="stack-label">Y</span><span class="stack-val" id="stack-y"></span><button class="stack-btn" id="btn-rup">R↑</button></div>
+      <div class="stack-row"><span class="stack-label">X</span><span class="stack-val" id="stack-x"></span><button class="stack-btn" id="btn-drop">drop</button></div>
     </div>
 
     <!-- Algebraic Display -->
@@ -125,16 +125,16 @@
       <button class="btn btn-orange" data-action="multiply">×</button>
 
       <button class="btn btn-func" data-action="not">NOT</button>
-      <button class="btn btn-func" data-action="shl">&lt;&lt;</button>
-      <button class="btn btn-func" data-action="shr">&gt;&gt;</button>
+      <button class="btn btn-func" id="btn-shl" data-action="shl" data-action-alt="rol">&lt;&lt;</button>
+      <button class="btn btn-func" id="btn-shr" data-action="shr" data-action-alt="ror">&gt;&gt;</button>
       <button class="btn btn-num" data-action="digit" data-val="4">4</button>
       <button class="btn btn-num" data-action="digit" data-val="5">5</button>
       <button class="btn btn-num" data-action="digit" data-val="6">6</button>
       <button class="btn btn-orange" data-action="subtract">−</button>
 
       <button class="btn btn-func" data-action="neg">NEG</button>
-      <button class="btn btn-func" data-action="shlby">X&lt;&lt;Y</button>
-      <button class="btn btn-func" data-action="shrby">X&gt;&gt;Y</button>
+      <button class="btn btn-func" id="btn-shlby" data-action="shlby" data-action-alt="rolby">X&lt;&lt;Y</button>
+      <button class="btn btn-func" id="btn-shrby" data-action="shrby" data-action-alt="rorby">X&gt;&gt;Y</button>
       <button class="btn btn-num" data-action="digit" data-val="1">1</button>
       <button class="btn btn-num" data-action="digit" data-val="2">2</button>
       <button class="btn btn-num" data-action="digit" data-val="3">3</button>
@@ -422,11 +422,16 @@
     }
 
     // Button click handler
+    let altActive = false;
     document.getElementById("calculator").addEventListener("click", (e) => {
       const btn = e.target.closest("button");
       if (!btn || btn.disabled) return;
-      const action = btn.dataset.action;
+      let action = btn.dataset.action;
       if (!action) return;
+      // Use alternate action when Alt is held
+      if (altActive && btn.dataset.actionAlt) {
+        action = btn.dataset.actionAlt;
+      }
       if (engine.mode === "rpn" && action !== "clear") {
         engine.clearPending = false;
       }
@@ -436,6 +441,46 @@
       }
       updateDisplay();
       updateClearButton();
+    });
+
+    // Alt/Option key toggles shift buttons to rotate buttons
+    function updateAltButtons(active) {
+      altActive = active;
+      const btnShl = document.getElementById("btn-shl");
+      const btnShr = document.getElementById("btn-shr");
+      const btnShlby = document.getElementById("btn-shlby");
+      const btnShrby = document.getElementById("btn-shrby");
+      if (btnShl) btnShl.textContent = active ? "RoL" : "<<";
+      if (btnShr) btnShr.textContent = active ? "RoR" : ">>";
+      if (btnShlby) btnShlby.textContent = active ? "XRoLY" : "X<<Y";
+      if (btnShrby) btnShrby.textContent = active ? "XRoRY" : "X>>Y";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Alt") {
+        e.preventDefault();
+        if (engine.layout === "programmer") {
+          updateAltButtons(true);
+        }
+        if (engine.layout === "scientific") {
+          setSecond(true);
+        }
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "Alt") {
+        updateAltButtons(false);
+        if (engine.layout === "scientific") {
+          setSecond(false);
+        }
+      }
+    });
+
+    // Reset alt state if window loses focus
+    window.addEventListener("blur", () => {
+      if (altActive) updateAltButtons(false);
+      if (secondActive && engine.layout === "scientific") setSecond(false);
     });
 
     function handleAction(action, val) {
@@ -529,6 +574,8 @@
         case "shrby": engine.opShiftRightBy(); break;
         case "rol": engine.opRoL(); break;
         case "ror": engine.opRoR(); break;
+        case "rolby": engine.opRoLBy(); break;
+        case "rorby": engine.opRoRBy(); break;
         case "mod": engine.opMod(); break;
         case "nand": engine.opNand(); break;
         case "nxor": engine.opNxor(); break;
@@ -540,6 +587,14 @@
 
     function toggleSecond() {
       secondActive = !secondActive;
+      document.getElementById("btn-2nd").classList.toggle("active", secondActive);
+      document.querySelectorAll(".normal").forEach(el => el.classList.toggle("hidden", secondActive));
+      document.querySelectorAll(".second").forEach(el => el.classList.toggle("hidden", !secondActive));
+    }
+
+    function setSecond(active) {
+      if (secondActive === active) return;
+      secondActive = active;
       document.getElementById("btn-2nd").classList.toggle("active", secondActive);
       document.querySelectorAll(".normal").forEach(el => el.classList.toggle("hidden", secondActive));
       document.querySelectorAll(".second").forEach(el => el.classList.toggle("hidden", !secondActive));
@@ -591,6 +646,8 @@
 
     // Keyboard support
     document.addEventListener("keydown", (e) => {
+      // Skip when Cmd/Ctrl is held (menu accelerators)
+      if (e.metaKey || e.ctrlKey) return;
       if (engine.mode === "rpn" && e.key !== "Escape") {
         engine.clearPending = false;
         updateClearButton();

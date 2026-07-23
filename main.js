@@ -55,6 +55,8 @@ function createWindow() {
     width,
     height,
     resizable: false,
+    fullscreenable: false,
+    maximizable: false,
     icon: appIcon,
     webPreferences: {
       nodeIntegration: true,
@@ -141,12 +143,14 @@ function buildMenu() {
               label: "Algebraic",
               type: "radio",
               checked: currentMode === "algebraic",
+              accelerator: "CmdOrCtrl+Shift+A",
               click: () => setCalcMode("algebraic"),
             },
             {
               label: "RPN",
               type: "radio",
               checked: currentMode === "rpn",
+              accelerator: "CmdOrCtrl+Shift+R",
               click: () => setCalcMode("rpn"),
             },
           ]
@@ -158,12 +162,14 @@ function buildMenu() {
               label: "Scientific",
               type: "radio",
               checked: currentLayout === "scientific",
+              accelerator: "CmdOrCtrl+Shift+S",
               click: () => setCalcLayout("scientific"),
             },
             {
               label: "Programmer",
               type: "radio",
               checked: currentLayout === "programmer",
+              accelerator: "CmdOrCtrl+Shift+P",
               click: () => setCalcLayout("programmer"),
             },
           ]
@@ -174,16 +180,17 @@ function buildMenu() {
             label: String(i),
             type: "radio",
             checked: currentPrecision === i,
+            accelerator: i <= 9 ? `CmdOrCtrl+${i}` : undefined,
             click: () => setCalcPrecision(i),
           }))
         },
         {
           label: "Display",
           submenu: [
-            { label: "Auto", type: "radio", checked: currentDisplay === "auto", click: () => setCalcDisplay("auto") },
-            { label: "Engineering", type: "radio", checked: currentDisplay === "engineering", click: () => setCalcDisplay("engineering") },
-            { label: "Fixed", type: "radio", checked: currentDisplay === "fixed", click: () => setCalcDisplay("fixed") },
-            { label: "Scientific", type: "radio", checked: currentDisplay === "scientific", click: () => setCalcDisplay("scientific") },
+            { label: "Auto", type: "radio", checked: currentDisplay === "auto", accelerator: "CmdOrCtrl+Alt+A", click: () => setCalcDisplay("auto") },
+            { label: "Engineering", type: "radio", checked: currentDisplay === "engineering", accelerator: "CmdOrCtrl+Alt+E", click: () => setCalcDisplay("engineering") },
+            { label: "Fixed", type: "radio", checked: currentDisplay === "fixed", accelerator: "CmdOrCtrl+Alt+F", click: () => setCalcDisplay("fixed") },
+            { label: "Scientific", type: "radio", checked: currentDisplay === "scientific", accelerator: "CmdOrCtrl+Alt+S", click: () => setCalcDisplay("scientific") },
           ]
         },
         { type: "separator" },
@@ -224,9 +231,9 @@ function buildMenu() {
     },
     {
       label: "Window",
+      role: "window",
       submenu: [
         { role: "minimize" },
-        ...(isMac ? [{ role: "zoom" }] : []),
         { type: "separator" },
         {
           label: "Toggle Developer Tools",

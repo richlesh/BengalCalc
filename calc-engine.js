@@ -851,8 +851,8 @@ class CalcEngine {
     if (m) { this.currentInput = this.currentInput.replace(/»\d+$/, "»" + (parseInt(m[1]) + 1)); }
     else { this._algebraicPostfix("»1"); }
   }
-  opShiftLeftBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) << this._toBigInt(x))); this.appendOperator("«"); }
-  opShiftRightBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(y) >> this._toBigInt(x))); this.appendOperator("»"); }
+  opShiftLeftBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(x) << this._toBigInt(y))); this.appendOperator("«"); }
+  opShiftRightBy() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(this._toBigInt(x) >> this._toBigInt(y))); this.appendOperator("»"); }
   opRoL() {
     if (this.mode === "rpn") return this._unaryOp(x => {
       const n = toUnsigned64(this._toBigInt(x));
@@ -870,6 +870,22 @@ class CalcEngine {
     const m = this.currentInput.match(/RoR(\d+)$/);
     if (m) { this.currentInput = this.currentInput.replace(/RoR\d+$/, "RoR" + (parseInt(m[1]) + 1)); }
     else { this._algebraicPostfix("RoR1"); }
+  }
+  opRoLBy() {
+    if (this.mode === "rpn") return this._binaryOp((y, x) => {
+      const n = toUnsigned64(this._toBigInt(x));
+      const s = ((this._toBigInt(y) % 64n) + 64n) % 64n;
+      return this._mask64((n << s) | (n >> (64n - s)));
+    });
+    this.appendOperator("RoL");
+  }
+  opRoRBy() {
+    if (this.mode === "rpn") return this._binaryOp((y, x) => {
+      const n = toUnsigned64(this._toBigInt(x));
+      const s = ((this._toBigInt(y) % 64n) + 64n) % 64n;
+      return this._mask64((n >> s) | (n << (64n - s)));
+    });
+    this.appendOperator("RoR");
   }
   opMod() { if (this.mode === "rpn") return this._binaryOp((y, x) => { const bx = this._toBigInt(x); return bx === 0n ? 0n : this._mask64(this._toBigInt(y) % bx); }); this.appendOperator("%"); }
   opNand() { if (this.mode === "rpn") return this._binaryOp((y, x) => this._mask64(~(this._toBigInt(y) & this._toBigInt(x)))); this.appendOperator("⊼"); }
