@@ -7,6 +7,9 @@
 </head>
 <body>
   <div id="calculator">
+    <!-- Angle mode indicator (scientific only) -->
+    <div id="angle-indicator">DEG</div>
+
     <!-- RPN Stack Display (hidden in algebraic mode) -->
     <div id="stack-display" class="hidden">
       <div class="stack-row"><span class="stack-label">T</span><span class="stack-val" id="stack-t"></span><button class="stack-btn" id="btn-swap">x↔y</button></div>
@@ -140,9 +143,9 @@
       <button class="btn btn-num" data-action="digit" data-val="3">3</button>
       <button class="btn btn-orange" data-action="add">+</button>
 
-      <button class="btn btn-func" data-action="mod">mod</button>
-      <button class="btn btn-func" data-action="flip8">flip₈</button>
-      <button class="btn btn-func" data-action="flip16">flip₁₆</button>
+      <button class="btn btn-func" data-action="mod">MOD</button>
+      <button class="btn btn-func" data-action="flip8">FLIP₈</button>
+      <button class="btn btn-func" data-action="flip16">FLIP₁₆</button>
       <button class="btn btn-num btn-hex" data-action="ff">FF</button>
       <button class="btn btn-num" data-action="digit" data-val="0">0</button>
       <button class="btn btn-num" data-action="digit" data-val="00">00</button>
@@ -241,6 +244,7 @@
       document.getElementById("prog-display").classList.toggle("hidden", !isProg);
       document.getElementById("sci-buttons").classList.toggle("hidden", isProg);
       document.getElementById("prog-buttons").classList.toggle("hidden", !isProg);
+      document.getElementById("angle-indicator").classList.toggle("hidden", isProg);
 
       const enterBtn = document.getElementById("btn-enter");
       if (enterBtn) enterBtn.textContent = isRPN ? "enter" : "=";
@@ -602,7 +606,9 @@
 
     function updateRadButton() {
       const btn = document.getElementById("btn-rad");
-      if (btn) btn.textContent = engine.angleMode === "rad" ? "Rad" : "Deg";
+      if (btn) btn.textContent = engine.angleMode === "rad" ? "Deg" : "Rad";
+      const indicator = document.getElementById("angle-indicator");
+      if (indicator) indicator.textContent = engine.angleMode === "rad" ? "RAD" : "DEG";
     }
 
     // Stack buttons

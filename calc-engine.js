@@ -14,7 +14,7 @@ class CalcEngine {
   constructor() {
     this.mode = "algebraic";
     this.layout = "scientific";
-    this.angleMode = "rad";
+    this.angleMode = "deg";
     this.secondActive = false;
     this.base = 10;
     this.memory = 0;
@@ -694,10 +694,7 @@ class CalcEngine {
 
   opPi() {
     if (this.mode === "rpn") {
-      if (!this.expectingOperand) {
-        this.pushStack(this._parseInput());
-      }
-      this.pushStack(Math.PI);
+      this.stack[3] = Math.PI;
       this.expectingOperand = true;
     } else {
       this.currentInput = Math.PI.toString();
@@ -707,10 +704,7 @@ class CalcEngine {
 
   opE() {
     if (this.mode === "rpn") {
-      if (!this.expectingOperand) {
-        this.pushStack(this._parseInput());
-      }
-      this.pushStack(Math.E);
+      this.stack[3] = Math.E;
       this.expectingOperand = true;
     } else {
       this.currentInput = Math.E.toString();

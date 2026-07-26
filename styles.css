@@ -21,6 +21,7 @@ button:focus {
 }
 
 #calculator {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -31,6 +32,16 @@ button:focus {
 .hidden { display: none !important; }
 
 /* === DISPLAY AREAS === */
+
+#angle-indicator {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #8e8e93;
+  z-index: 10;
+}
 
 #alg-display {
   flex: 0 0 auto;
